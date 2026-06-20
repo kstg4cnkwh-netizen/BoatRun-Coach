@@ -1,1 +1,667 @@
-test
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BoatRun Coach"/>
+<meta name="theme-color" content="#1a5276"/>
+<title>BoatRun Coach</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;-webkit-text-size-adjust:none}
+body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);display:flex;flex-direction:column;}
+
+/* Chrome */
+.top-bar{background:#1a5276;color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.top-title{font-size:13px;font-weight:700;letter-spacing:.12em;}
+.conn-pill{font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 9px;border-radius:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.7);}
+.conn-pill.on{background:#27ae60;color:#fff;}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #ddd;flex-shrink:0;}
+.tab-btn{flex:1;padding:11px 4px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.1em;color:#888;background:none;border:none;cursor:pointer;touch-action:manipulation;border-bottom:3px solid transparent;font-family:'Roboto',sans-serif;}
+.tab-btn.active{color:#1a5276;border-bottom-color:#1a5276;}
+.tab-panel{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px;}
+.tab-panel.active{display:flex;flex-direction:column;}
+
+/* Live tiles */
+.rower-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+@media(min-width:600px){.rower-grid{grid-template-columns:repeat(4,1fr);}}
+.rower-tile{background:#fff;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #27ae60;}
+.rower-tile.stale{border-left-color:#ccc;opacity:.55;}
+.rt-name{font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rt-rate{font-family:"Roboto Condensed",sans-serif;font-size:30px;font-weight:700;color:#1a5276;line-height:1.1;margin:4px 0 0;}
+.rt-rate-lbl{font-size:8px;color:#999;letter-spacing:.08em;}
+.rt-stats{display:flex;gap:8px;margin-top:6px;font-size:10px;color:#555;flex-wrap:wrap;}
+.rt-age{font-size:8px;color:#bbb;margin-top:4px;}
+.empty-grid{text-align:center;padding:40px 20px;color:#bbb;font-size:12px;line-height:1.8;grid-column:1/-1;}
+.lap-btn-big{background:#c0392b;color:#fff;border:none;border-radius:6px;padding:18px;font-size:16px;font-weight:700;letter-spacing:.12em;cursor:pointer;touch-action:manipulation;width:100%;margin-top:auto;font-family:'Roboto',sans-serif;}
+.lap-btn-big:active{background:#a93226;}
+
+/* Settings inputs (shared with builder name field) */
+.setup-section{font-size:9px;color:#666;letter-spacing:.16em;text-transform:uppercase;margin:10px 0 6px;font-weight:700;}
+.setup-input{width:100%;padding:9px 10px;border-radius:3px;border:1px solid #ddd;font-family:"Roboto",sans-serif;font-size:13px;margin-bottom:8px;-webkit-appearance:none;appearance:none;}
+.setup-input:focus{outline:none;border-color:#1a5276;}
+
+/* Workout builder — same as Metrics app */
+.wkt-card{background:#fff;border-radius:4px;margin-bottom:6px;border-left:4px solid #f39c12;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;}
+.wkc-header{display:flex;align-items:center;padding:10px 12px;cursor:pointer;gap:8px;user-select:none;}
+.wkc-name{font-size:13px;font-weight:700;color:#000;flex:1;}
+.wkc-arrow{font-size:10px;color:#aaa;display:inline-block;transition:transform .2s;flex-shrink:0;}
+.wkc-arrow.open{transform:rotate(90deg);}
+.wkc-body{display:none;padding:0 12px 10px;border-top:1px solid #f0f0f0;}.wkc-body.open{display:block;}
+#wkt-builder-wrap.in-card{margin-top:4px;}
+#wkt-builder-wrap.in-card .wkt-builder{background:none;box-shadow:none;border-radius:0;padding:6px 0 0;}
+.wkt-builder{background:#fff;border-radius:4px;padding:12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.step-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f0;user-select:none;flex-wrap:wrap;}
+.wkt-target-row{flex-basis:100%;display:flex;gap:10px;align-items:center;padding:4px 0 2px 26px;}
+.wkt-target-item{display:flex;align-items:center;gap:3px;}
+.wkt-target-tog{font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 6px;border-radius:3px;border:1px solid #ccc;background:#eee;color:#999;cursor:pointer;touch-action:manipulation;}
+.wkt-target-tog.ton{background:#1a5276;color:#fff;border-color:#1a5276;}
+.wkt-target-val{font-size:12px;font-weight:700;min-width:34px;text-align:center;color:#222;}
+.wkt-target-val.tdim{color:#ccc;}
+.step-row.step-sel{background:#f0f7ff;margin:0 -12px;padding:8px 12px;}
+.step-check{width:18px;height:18px;border-radius:3px;border:2px solid #ddd;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.step-check.checked{background:#1a5276;border-color:#1a5276;color:#fff;font-size:11px;}
+.step-badge{font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border-radius:3px;flex-shrink:0;cursor:pointer;}
+.step-badge.warmup{background:#5dade2;color:#fff;}
+.step-badge.work{background:#27ae60;color:#fff;}
+.step-badge.rest{background:#f39c12;color:#000;}
+.step-badge.cooldown{background:#8e44ad;color:#fff;}
+.step-del{background:none;border:none;color:#c0392b;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;touch-action:manipulation;}
+.step-reorder{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.reorder-btn{background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:1px 4px;line-height:1;touch-action:manipulation;}
+.repeat-group{border:2px solid #1a5276;border-radius:4px;padding:8px;margin:4px 0;}
+.repeat-group-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.repeat-count-input{width:44px;font-size:14px;font-weight:700;padding:4px;border:1px solid #ddd;border-radius:3px;text-align:center;-webkit-appearance:none;appearance:none;}
+.skip-rest-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#555;}
+.start-row-btn{background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;font-size:9px;font-weight:700;letter-spacing:.05em;color:#aaa;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
+.start-row-btn.active{background:#27ae60;border-color:#27ae60;color:#fff;}
+.add-step-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.add-step-btn{padding:7px 10px;border-radius:3px;border:1px solid #ddd;background:#fff;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.add-step-btn.warmup{border-color:#5dade2;color:#2e86c1;}
+.add-step-btn.work{border-color:#27ae60;color:#1e8449;}
+.add-step-btn.rest{border-color:#f39c12;color:#b7770d;}
+.add-step-btn.cooldown{border-color:#8e44ad;color:#6c3483;}
+.add-step-btn.repeats{border-color:#1a5276;color:#1a5276;display:none;}
+.add-step-btn.repeats.show{display:inline-block;}
+.stepper-btn{width:32px;height:32px;border-radius:3px;border:1px solid #ddd;background:#fff;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#333;touch-action:manipulation;}
+.mode-toggle{display:flex;border-radius:3px;overflow:hidden;border:1px solid #ddd;}
+.mode-toggle-btn{flex:1;padding:6px 8px;border:none;background:#fff;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;color:#888;touch-action:manipulation;}
+.mode-toggle-btn.sel{background:#1a5276;color:#fff;}
+.wkt-actions{display:flex;gap:6px;margin-top:10px;}
+.wkt-btn{flex:1;padding:10px 4px;border-radius:3px;border:none;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
+.wkt-btn.load{background:#27ae60;color:#fff;}.wkt-btn.del{background:#fff;color:#c0392b;border:1px solid #e0e0e0;}.wkt-btn.new-w{background:#1a5276;color:#fff;}.wkt-btn.save{background:#1a5276;color:#fff;}
+
+/* Toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="top-title">BOATRUN COACH</span>
+  <span class="conn-pill" id="conn-pill">OFFLINE</span>
+</div>
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="live">LIVE</button>
+  <button class="tab-btn" data-tab="workouts">WORKOUTS</button>
+  <button class="tab-btn" data-tab="settings">SETTINGS</button>
+</div>
+
+<div class="tab-panel active" id="panel-live">
+  <div class="rower-grid" id="rower-grid">
+    <div class="empty-grid" id="empty-grid">No rowers connected yet.<br/>Set a squad code in Settings, and have rowers enter the same code in their Metrics app.</div>
+  </div>
+  <button class="lap-btn-big" id="coach-lap-btn">LAP — ALL BOATS</button>
+</div>
+
+<div class="tab-panel" id="panel-workouts">
+  <div id="workout-list-container"></div>
+  <button class="wkt-btn new-w" style="width:100%;margin-top:4px;" id="new-wkt-btn">+ NEW WORKOUT</button>
+  <div id="wkt-builder-wrap" style="display:none;margin-top:8px;">
+    <div class="wkt-builder">
+      <input type="text" class="setup-input" id="wkt-builder-name" placeholder="Workout name"/>
+      <div id="wkt-step-list"></div>
+      <div class="add-step-row">
+        <button class="add-step-btn warmup" id="btn-add-warmup">+ WARMUP</button>
+        <button class="add-step-btn work" id="btn-add-work">+ WORK</button>
+        <button class="add-step-btn rest" id="btn-add-rest">+ REST</button>
+        <button class="add-step-btn cooldown" id="btn-add-cooldown">+ COOLDOWN</button>
+        <button class="add-step-btn repeats" id="btn-add-repeats">&#x21BB; REPEATS</button>
+      </div>
+      <div style="font-size:10px;color:#999;padding:6px 2px 0;line-height:1.5;">
+      ▶| only start the interval when rowing — tap on any work or rest step to enable. Requires two strokes ≥ 12 spm to trigger.</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button class="wkt-btn save" style="flex:2;" id="save-wkt-btn">SAVE WORKOUT</button>
+      <button class="wkt-btn del" style="flex:1;" id="cancel-wkt-btn">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-settings">
+  <div class="setup-section">SQUAD</div>
+  <input id="squad-code-input" type="text" class="setup-input" placeholder="Squad code (e.g. RC7K)" maxlength="8" style="text-transform:uppercase;"/>
+  <input id="coach-name-input" type="text" class="setup-input" placeholder="Your name (e.g. Coach Smith)" maxlength="24"/>
+  <button class="wkt-btn save" style="width:100%;" id="save-squad-btn">SAVE &amp; CONNECT</button>
+  <div style="font-size:10px;color:#999;margin-top:10px;line-height:1.6;">Rowers enter this same squad code in their Metrics app (Settings tab) to connect. Workouts you save here are pushed to the squad, not stored on rowers' phones automatically — push again any time.</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────────
+// STORAGE
+// ──────────────────────────────────────────────────────────────────────────
+const _LS = (() => {
+    const m = {};
+    const fake = {
+        getItem: k => m[k] ?? null,
+        setItem: (k, v) => { m[k] = String(v); },
+        removeItem: k => { delete m[k]; },
+        clear: () => { for (const k in m) delete m[k]; },
+        key: i => Object.keys(m)[i] ?? null,
+        get length() { return Object.keys(m).length; }
+    };
+    try { window.localStorage.getItem(''); return window.localStorage; }
+    catch { return fake; }
+})();
+function toast(m) {
+    const t = document.getElementById('toast');
+    t.textContent = m;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+}
+const fmt = s => {
+    s = Math.max(0, Math.round(s));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+};
+const appSettings = { paceUnit: 'pace500', distUnit: 'km', dpsUnit: 'm' };
+function fmtPace(paceS500) {
+    if (!paceS500 || paceS500 <= 0) return '--:--';
+    switch (appSettings.paceUnit) {
+        case 'pace500':  return fmt(paceS500);
+        case 'pace1000': return fmt(paceS500 * 2);
+        case 'pacemile': return fmt(paceS500 * 3.21868);
+        case 'kph':      return (1800 / paceS500).toFixed(1);
+        case 'mph':      return (1118.47 / paceS500).toFixed(1);
+        default:         return fmt(paceS500);
+    }
+}
+function paceUnitShort() { return '/500'; }
+function fmtStepDist(m) { return appSettings.distUnit === 'mi' ? (m / 1609.34).toFixed(1) + 'mi' : m + 'm'; }
+function distStepIncrement() { return appSettings.distUnit === 'mi' ? 161 : 50; }
+function distStepMin()       { return appSettings.distUnit === 'mi' ? 161 : 50; }
+function distStepDefault(type) { return type === 'work' ? 1000 : 500; }
+
+// ──────────────────────────────────────────────────────────────────────────
+// SQUAD SYNC — live tiles, lap broadcast, workout push
+// ──────────────────────────────────────────────────────────────────────────
+const SQUAD_DB_URL = 'https://boatrun-default-rtdb.asia-southeast1.firebasedatabase.app';
+function getSquadCode() { try { return _LS.getItem('_coach_squad_code') || ''; } catch { return ''; } }
+function setSquadCode(c) { try { _LS.setItem('_coach_squad_code', (c || '').trim().toUpperCase()); } catch {} }
+function getCoachName() { try { return _LS.getItem('_coach_name') || ''; } catch { return ''; } }
+function setCoachName(n) { try { _LS.setItem('_coach_name', (n || '').trim()); } catch {} }
+
+const CoachSync = (() => {
+    let _es = null, _rowers = {};
+    return {
+        isConnected() { return !!_es; },
+        rowers() { return _rowers; },
+        listen() {
+            const code = getSquadCode();
+            this.stop();
+            if (!code || typeof EventSource === 'undefined') return;
+            _es = new EventSource(SQUAD_DB_URL + '/squads/' + code + '/rowers.json');
+            const handle = raw => {
+                let msg; try { msg = JSON.parse(raw); } catch { return; }
+                if (!msg) return;
+                if (msg.path === '/') {
+                    _rowers = {};
+                    const snap = msg.data || {};
+                    Object.keys(snap).forEach(id => { if (snap[id] && snap[id].live) _rowers[id] = snap[id].live; });
+                } else {
+                    const parts = msg.path.split('/').filter(Boolean); // [deviceId] or [deviceId,'live']
+                    if (!parts.length) return;
+                    const id = parts[0];
+                    if (msg.data === null) { delete _rowers[id]; }
+                    else if (parts.length === 1) { if (msg.data && msg.data.live) _rowers[id] = msg.data.live; }
+                    else if (parts[1] === 'live') { _rowers[id] = msg.data; }
+                }
+                renderRowerGrid();
+            };
+            _es.addEventListener('put', e => handle(e.data));
+            _es.addEventListener('patch', e => handle(e.data));
+            _es.onopen = () => updateConnPill(true);
+            _es.onerror = () => updateConnPill(false);
+        },
+        stop() { if (_es) { _es.close(); _es = null; } _rowers = {}; updateConnPill(false); },
+        async sendLap() {
+            const code = getSquadCode(); if (!code) { toast('Set a squad code first'); return; }
+            try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/lap.json', { method: 'PUT', body: JSON.stringify({ t: Date.now() }) }); toast('Lap sent'); }
+            catch { toast('Send failed — check connection'); }
+        },
+        async pushWorkout(def) {
+            const code = getSquadCode(); if (!code) { toast('Set a squad code first'); return; }
+            try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/workout.json', { method: 'PUT', body: JSON.stringify({ ...def, t: Date.now() }) }); toast('"' + def.name + '" pushed to squad'); }
+            catch { toast('Push failed — check connection'); }
+        }
+    };
+})();
+function updateConnPill(on) {
+    const p = document.getElementById('conn-pill'); if (!p) return;
+    p.textContent = on ? 'CONNECTED' : 'OFFLINE'; p.classList.toggle('on', !!on);
+}
+function renderRowerGrid() {
+    const grid = document.getElementById('rower-grid'); if (!grid) return;
+    const rowers = CoachSync.rowers();
+    const ids = Object.keys(rowers);
+    if (!ids.length) { grid.innerHTML = '<div class="empty-grid" id="empty-grid">No rowers connected yet.<br/>Set a squad code in Settings, and have rowers enter the same code in their Metrics app.</div>'; return; }
+    const now = Date.now();
+    grid.innerHTML = ids.map(id => {
+        const r = rowers[id] || {};
+        const age = r.t ? Math.round((now - r.t) / 1000) : null;
+        const stale = age == null || age > 8;
+        return `<div class="rower-tile${stale ? ' stale' : ''}">
+            <div class="rt-name">${(r.name || 'Rower')}</div>
+            <div class="rt-rate">${r.rate || '--'}</div>
+            <div class="rt-rate-lbl">SPM</div>
+            <div class="rt-stats"><span>${r.dist != null ? r.dist + 'm' : '--'}</span><span>${r.strokes || 0} str</span><span>${r.laps || 0} lap</span></div>
+            <div class="rt-age">${age != null ? age + 's ago' : 'no data'}</div>
+        </div>`;
+    }).join('');
+}
+setInterval(renderRowerGrid, 2000); // keeps "Xs ago" / stale state ticking between updates
+
+// ──────────────────────────────────────────────────────────────────────────
+// WORKOUT BUILDER — same as Metrics app (LOAD replaced with PUSH TO SQUAD)
+// ──────────────────────────────────────────────────────────────────────────
+const WORKOUT_KEY = 'coach_workouts_v1';
+const DEFAULT_WORKOUTS = [
+  {id:'default_race1000',name:'Race 1000m',steps:[
+    {type:'warmup',mode:'open'},
+    {type:'work',mode:'distance',value:1000,startWhenRowing:true},
+    {type:'cooldown',mode:'open'}
+  ]},
+  {id:'default_baseline_ladder_v2',name:'Baseline: Rate Ladder',steps:[
+    {type:'warmup',mode:'open'},
+    {type:'repeat',count:4,skipLastRest:true,steps:[
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:24},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:26},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:28},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:30},
+      {type:'rest',mode:'time',value:240,timeValue:240,distValue:250}
+    ]},
+    {type:'cooldown',mode:'open'}
+  ]}
+];
+let _wktSteps = [], _wktSelectedSteps = new Set(), _wktEditId = null, _wktOriginalSnapshot = null, _wktBuilderWired = false;
+function loadWorkouts(){
+  let saved;
+  try{saved=JSON.parse(_LS.getItem(WORKOUT_KEY));}catch{}
+  if(!saved||!saved.length)return JSON.parse(JSON.stringify(DEFAULT_WORKOUTS));
+  let applied;
+  try{applied=JSON.parse(_LS.getItem('coach_defaults_v1'))||[];}catch{applied=[];}
+  const ids=new Set(saved.map(w=>w.id));
+  let changed=false;
+  for(const d of DEFAULT_WORKOUTS){
+    if(!ids.has(d.id)&&!applied.includes(d.id)){
+      saved.push(JSON.parse(JSON.stringify(d)));
+      applied.push(d.id);
+      changed=true;
+    }
+  }
+  if(changed){
+    try{_LS.setItem(WORKOUT_KEY,JSON.stringify(saved));}catch{}
+    try{_LS.setItem('coach_defaults_v1',JSON.stringify(applied));}catch{}
+  }
+  return saved;
+}
+function saveWorkouts(ws){try{_LS.setItem(WORKOUT_KEY,JSON.stringify(ws));}catch{}}
+function renderWorkoutList(){
+  const container=document.getElementById('workout-list-container');if(!container)return;
+  const workouts=loadWorkouts();
+  if(!workouts.length){container.innerHTML='<div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">No workouts yet.</div>';return;}
+  container.innerHTML=workouts.map((w,wi)=>`
+    <div class="wkt-card" id="wktcard-${wi}">
+      <div class="wkc-header" data-wi="${wi}">
+        <span class="wkc-name">${w.name}</span>
+        <span class="wkc-arrow">&#9658;</span>
+      </div>
+      <div class="wkc-body" id="wkb-${wi}">
+        <div class="wkt-actions" style="margin-bottom:6px;">
+          <button class="wkt-btn load" data-action="push" data-wi="${wi}">&#128225; PUSH TO SQUAD</button>
+          <button class="wkt-btn del" data-action="del" data-wi="${wi}">DEL</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function detachBuilder(){
+  const bw=document.getElementById('wkt-builder-wrap');
+  const htw=document.getElementById('panel-workouts');
+  if(bw){bw.classList.remove('in-card');if(htw&&bw.parentNode!==htw)htw.insertBefore(bw,document.getElementById('new-wkt-btn').nextSibling);bw.style.display='none';}
+  document.getElementById('new-wkt-btn').style.display='block';
+}
+function toggleWktCard(wi){
+  const body=document.getElementById('wkb-'+wi);if(!body)return;
+  const isOpen=body.classList.contains('open');
+  const bw=document.getElementById('wkt-builder-wrap');
+  if(bw&&bw.style.display!=='none'){
+    const curSnap=JSON.stringify({name:(document.getElementById('wkt-builder-name').value||'').trim(),steps:_wktSteps});
+    if(curSnap!==(_wktOriginalSnapshot||JSON.stringify({name:'',steps:[]}))){
+      if(confirm('Save changes?')){saveWorkoutFromBuilder();return;}
+    }
+    detachBuilder();_wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+  }
+  document.querySelectorAll('.wkc-body').forEach(b=>{b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');});
+  if(isOpen)return;
+  const workouts=loadWorkouts();const w=workouts[wi];if(!w)return;
+  _wktEditId=w.id;_wktSteps=JSON.parse(JSON.stringify(w.steps||[]));_wktSelectedSteps=new Set();
+  _wktOriginalSnapshot=JSON.stringify({name:w.name||'',steps:w.steps||[]});
+  document.getElementById('wkt-builder-name').value=w.name||'';
+  document.getElementById('new-wkt-btn').style.display='none';
+  const bwEl=document.getElementById('wkt-builder-wrap');
+  bwEl.classList.add('in-card');body.appendChild(bwEl);bwEl.style.display='block';
+  renderBuilderSteps();
+  body.classList.add('open');
+  const arr=body.previousElementSibling&&body.previousElementSibling.querySelector('.wkc-arrow');
+  if(arr)arr.classList.add('open');
+}
+function pushWorkoutNow(wi){
+  const workouts=loadWorkouts();const def=workouts[wi];if(!def)return;
+  CoachSync.pushWorkout(def);
+}
+function deleteWorkout(wi){
+  const workouts=loadWorkouts();
+  if(!confirm('Delete "'+workouts[wi].name+'"?'))return;
+  detachBuilder();_wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+  workouts.splice(wi,1);saveWorkouts(workouts);renderWorkoutList();toast('Deleted');
+}
+function wireWorkoutBuilder(){
+  if(_wktBuilderWired)return;_wktBuilderWired=true;
+  document.getElementById('new-wkt-btn').onclick=()=>{
+    _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();
+    document.getElementById('wkt-builder-name').value='';
+    document.getElementById('new-wkt-btn').style.display='none';
+    document.getElementById('wkt-builder-wrap').style.display='block';
+    renderBuilderSteps();
+  };
+  document.getElementById('cancel-wkt-btn').onclick=()=>{
+    detachBuilder();
+    _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+    document.querySelectorAll('.wkc-body').forEach(b=>{b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');});
+  };
+  document.getElementById('btn-add-warmup').onclick=()=>addBuilderStep({type:'warmup',mode:'open'});
+  document.getElementById('btn-add-work').onclick=()=>addBuilderStep({type:'work',mode:'time',value:240,timeValue:240,distValue:1000});
+  document.getElementById('btn-add-rest').onclick=()=>addBuilderStep({type:'rest',mode:'time',value:240,timeValue:240,distValue:500});
+  document.getElementById('btn-add-cooldown').onclick=()=>addBuilderStep({type:'cooldown',mode:'open'});
+  document.getElementById('btn-add-repeats').onclick=()=>groupSelectedAsRepeats();
+  document.getElementById('save-wkt-btn').onclick=saveWorkoutFromBuilder;
+  document.getElementById('panel-workouts').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-action][data-wi]');
+    const hdr=e.target.closest('.wkc-header[data-wi]');
+    if(btn){const wi=parseInt(btn.dataset.wi);const a=btn.dataset.action;if(a==='push')pushWorkoutNow(wi);else if(a==='del')deleteWorkout(wi);}
+    else if(hdr){toggleWktCard(parseInt(hdr.dataset.wi));}
+  });
+}
+function addBuilderStep(step){
+  _wktSteps.push({...step,id:'s'+Date.now()+Math.random().toString(36).slice(2)});
+  _wktSelectedSteps=new Set();renderBuilderSteps();
+}
+function renderBuilderSteps(){
+  const el=document.getElementById('wkt-step-list');if(!el)return;
+  const selBtn=document.getElementById('btn-add-repeats');
+  if(selBtn)selBtn.classList.toggle('show',_wktSelectedSteps.size>=2);
+  if(!_wktSteps.length){el.innerHTML='<div style="color:#bbb;font-size:11px;padding:8px 0;">Add steps below.</div>';return;}
+  el.innerHTML=_wktSteps.map((s,i)=>renderBuilderStep(s,i)).join('');
+  _wktSteps.forEach((s,i)=>{
+    const chk=document.getElementById('schk-'+i);
+    if(chk)chk.onclick=()=>{
+      if(_wktSelectedSteps.has(i))_wktSelectedSteps.delete(i);
+      else _wktSelectedSteps.add(i);
+      renderBuilderSteps();
+    };
+  });
+}
+function renderBuilderStep(s,i){
+  const sel=_wktSelectedSteps.has(i);
+  if(s.type==='repeat'){
+    const inner=(s.steps||[]).map((iv,si)=>renderInnerStep(iv,i,si)).join('');
+    return '<div class="repeat-group" style="'+(sel?'border-color:#27ae60;background:#f0fff4;':'')+'">'+
+      '<div class="repeat-group-hdr">'+
+      '<div id="schk-'+i+'" class="step-check'+(sel?' checked':'')+'">'+( sel?'&#x2713;':'')+'</div>'+
+      '<span style="font-size:11px;font-weight:700;color:#1a5276;flex-shrink:0;">REPEAT</span>'+
+      '<input class="repeat-count-input" type="number" value="'+(s.count||2)+'" min="1" max="99"'+
+        ' onchange="_wktSteps['+i+'].count=+this.value"/>'+
+      '<span style="font-size:10px;color:#888;">x</span>'+
+      '<div style="flex:1;"></div>'+
+      '<button class="step-del" onclick="delBuilderStep('+i+')">&#215;</button>'+
+      '</div>'+inner+
+      '<div class="skip-rest-row"><input type="checkbox" class="skip-rest-cb"'+
+        (s.skipLastRest?' checked':'')+' onchange="_wktSteps['+i+'].skipLastRest=this.checked"/>'+
+        '<span>Skip last rest</span></div>'+
+      '</div>';
+  }
+  return stepRowHTML(s,i,'_wktSteps',sel,i===0,i===_wktSteps.length-1);
+}
+function renderInnerStep(s,gi,si){
+  return stepRowHTML(s,si,'_wktSteps['+gi+'].steps',false,si===0,si===(_wktSteps[gi].steps||[]).length-1,gi,si);
+}
+function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
+  const isOpen=s.mode==='open';
+  const displayVal=s.mode==='time'?(()=>{const m=Math.floor(s.value/60),sc=s.value%60;return m>0?(m+':'+(sc<10?'0':'')+sc):s.value+'s';})():s.mode==='distance'?fmtStepDist(s.value):0;
+  const adjustFn=gi!=null
+    ?'adjustInnerStep('+gi+','+si+',$DIR)'
+    :'adjustStep('+i+',$DIR)';
+  const modeFn=gi!=null
+    ?'setInnerStepMode('+gi+','+si+',$MODE)'
+    :'setStepMode('+i+',$MODE)';
+  const moveFn=gi!=null?null:'moveStep('+i+',$DIR)';
+  const delFn=gi!=null?'delInnerStep('+gi+','+si+')':'delBuilderStep('+i+')';
+  const chkId='schk-'+(gi!=null?gi+'-'+si:i);
+  const toggleFn=gi!=null
+    ?'toggleInnerStartWhenRowing('+gi+','+si+')'
+    :'toggleStartWhenRowing('+i+')';
+  const tRateFn=gi!=null?'toggleInnerStepTarget('+gi+','+si+',\'rate\')':'toggleStepTarget('+i+',\'rate\')';
+  const tPaceFn=gi!=null?'toggleInnerStepTarget('+gi+','+si+',\'pace\')':'toggleStepTarget('+i+',\'pace\')';
+  const aRateFn=gi!=null?'adjustInnerStepTarget('+gi+','+si+',\'rate\',$DIR)':'adjustStepTarget('+i+',\'rate\',$DIR)';
+  const aPaceFn=gi!=null?'adjustInnerStepTarget('+gi+','+si+',\'pace\',$DIR)':'adjustStepTarget('+i+',\'pace\',$DIR)';
+  const hasRate=s.targetRate!=null;
+  const hasPace=s.targetPace!=null;
+  const rateVal=s.targetRate!=null?s.targetRate:22;
+  const paceVal=s.targetPace!=null?fmtPace(s.targetPace)+paceUnitShort():fmtPace(120)+paceUnitShort();
+  const targetRow=s.type==='work'
+    ?'<div class="wkt-target-row">'+
+      '<div class="wkt-target-item">'+
+        '<button class="wkt-target-tog'+(hasRate?' ton':'')+'" onclick="'+tRateFn+'">SPM</button>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasRate?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aRateFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span class="wkt-target-val'+(hasRate?'':' tdim')+'">'+rateVal+'</span>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasRate?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aRateFn.replace('$DIR','1')+'">+</button>'+
+      '</div>'+
+      '<div class="wkt-target-item">'+
+        '<button class="wkt-target-tog'+(hasPace?' ton':'')+'" onclick="'+tPaceFn+'">PACE</button>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasPace?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aPaceFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span class="wkt-target-val'+(hasPace?'':' tdim')+'">'+paceVal+'</span>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasPace?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aPaceFn.replace('$DIR','1')+'">+</button>'+
+      '</div>'+
+    '</div>'
+    :'';
+  return '<div class="step-row'+(sel?' step-sel':'')+'" style="'+(gi!=null?'padding-left:8px;':'')+'">'+
+    '<div id="'+chkId+'" class="step-check'+(sel?' checked':'')+'">'+(sel?'&#x2713;':'')+'</div>'+
+    '<span class="step-badge '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span>'+
+    (isOpen
+      ? '<span style="font-size:11px;color:#bbb;flex:1;">Press LAP</span>'
+      : '<div style="display:flex;align-items:center;gap:3px;flex:1;">'+
+        '<button class="stepper-btn" style="width:26px;height:26px;font-size:16px;"'+
+          ' onclick="'+adjustFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span style="font-size:14px;font-weight:700;min-width:32px;text-align:center;">'+displayVal+'</span>'+
+        '<button class="stepper-btn" style="width:26px;height:26px;font-size:16px;"'+
+          ' onclick="'+adjustFn.replace('$DIR','1')+'">+</button>'+
+        '</div>'
+    )+
+    (s.type==='warmup'||s.type==='cooldown'
+      ? '<span style="font-size:9px;color:#aaa;padding:0 4px;">open</span>'
+      : '<div class="mode-toggle">'+
+        '<button class="mode-toggle-btn'+(s.mode==='time'?' sel':'')+'"'+
+          ' onclick="'+modeFn.replace('$MODE',"'time'")+'" style="padding:4px 6px;">TIME</button>'+
+        '<button class="mode-toggle-btn'+(s.mode==='distance'?' sel':'')+'"'+
+          ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">DIST</button>'+
+        '</div>'
+    )+
+    (s.type==='work'||s.type==='rest'
+      ? '<button class="start-row-btn'+(s.startWhenRowing?' active':'')+'"'+
+        ' onclick="'+toggleFn+'" title="Start when rowing">▶|</button>'
+      : ''
+    )+
+    (moveFn
+      ? '<div class="step-reorder">'+
+        '<button class="reorder-btn" onclick="'+moveFn.replace('$DIR','-1')+'" '+(isFirst?'disabled':'')+'>&#9650;</button>'+
+        '<button class="reorder-btn" onclick="'+moveFn.replace('$DIR','1')+'" '+(isLast?'disabled':'')+'>&#9660;</button>'+
+        '</div>'
+      : ''
+    )+
+    '<button class="step-del" onclick="'+delFn+'">&#215;</button>'+
+    targetRow+
+    '</div>';
+}
+function prevTime(val){
+  if(val<=10)return 10;
+  if(val<=120)return Math.max(10,Math.floor((val-1)/10)*10);
+  if(val<=600)return Math.max(120,Math.floor((val-1)/30)*30);
+  return Math.max(600,Math.floor((val-1)/60)*60);
+}
+function nextTime(val){
+  if(val<120)return Math.min(120,Math.ceil((val+1)/10)*10);
+  if(val<600)return Math.min(600,Math.ceil((val+1)/30)*30);
+  return Math.ceil((val+1)/60)*60;
+}
+function adjustStep(i,dir){
+  const s=_wktSteps[i];if(!s)return;
+  if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
+  else if(s.mode==='distance')s.value=Math.max(distStepMin(),(s.value||distStepDefault(s.type))+dir*distStepIncrement());
+  renderBuilderSteps();
+}
+function adjustInnerStep(gi,si,dir){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
+  else if(s.mode==='distance')s.value=Math.max(distStepMin(),(s.value||distStepDefault(s.type))+dir*distStepIncrement());
+  renderBuilderSteps();
+}
+function setStepMode(i,mode){
+  const s=_wktSteps[i];if(!s||mode===s.mode)return;
+  if(s.mode==='time')s.timeValue=s.value;
+  else if(s.mode==='distance')s.distValue=s.value;
+  s.mode=mode;
+  if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
+  if(mode==='distance')s.value=s.distValue||distStepDefault(s.type);
+  renderBuilderSteps();
+}
+function setInnerStepMode(gi,si,mode){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s||mode===s.mode)return;
+  if(s.mode==='time')s.timeValue=s.value;
+  else if(s.mode==='distance')s.distValue=s.value;
+  s.mode=mode;
+  if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
+  if(mode==='distance')s.value=s.distValue||distStepDefault(s.type);
+  renderBuilderSteps();
+}
+function moveStep(i,dir){
+  const j=i+dir;if(j<0||j>=_wktSteps.length)return;
+  [_wktSteps[i],_wktSteps[j]]=[_wktSteps[j],_wktSteps[i]];
+  _wktSelectedSteps=new Set();renderBuilderSteps();
+}
+function delBuilderStep(i){_wktSteps.splice(i,1);_wktSelectedSteps=new Set();renderBuilderSteps();}
+function delInnerStep(gi,si){if(_wktSteps[gi]&&_wktSteps[gi].steps)_wktSteps[gi].steps.splice(si,1);renderBuilderSteps();}
+function toggleStartWhenRowing(i){
+  const s=_wktSteps[i];if(!s)return;
+  s.startWhenRowing=!s.startWhenRowing;renderBuilderSteps();
+}
+function toggleInnerStartWhenRowing(gi,si){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  s.startWhenRowing=!s.startWhenRowing;renderBuilderSteps();
+}
+function toggleStepTarget(i,field){
+  const s=_wktSteps[i];if(!s)return;
+  if(field==='rate'){s.targetRate=s.targetRate!=null?null:22;}
+  else if(field==='pace'){s.targetPace=s.targetPace!=null?null:120;}
+  renderBuilderSteps();
+}
+function toggleInnerStepTarget(gi,si,field){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(field==='rate'){s.targetRate=s.targetRate!=null?null:22;}
+  else if(field==='pace'){s.targetPace=s.targetPace!=null?null:120;}
+  renderBuilderSteps();
+}
+function adjustStepTarget(i,field,dir){
+  const s=_wktSteps[i];if(!s)return;
+  if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*2));
+  renderBuilderSteps();
+}
+function adjustInnerStepTarget(gi,si,field,dir){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*2));
+  renderBuilderSteps();
+}
+function groupSelectedAsRepeats(){
+  if(_wktSelectedSteps.size<2)return;
+  const indices=[..._wktSelectedSteps].sort((a,b)=>a-b);
+  const selectedSteps=indices.map(i=>_wktSteps[i]);
+  const countStr=prompt('How many repeats?','4');const count=parseInt(countStr||'0');if(!count||count<1)return;
+  const repeatGroup={type:'repeat',id:'rg'+Date.now(),count,skipLastRest:false,steps:selectedSteps.map(s=>({...s}))};
+  const firstIdx=indices[0];
+  _wktSteps.splice(firstIdx,0,repeatGroup);
+  indices.slice().reverse().forEach(i=>_wktSteps.splice(i+1,1));
+  _wktSelectedSteps=new Set();renderBuilderSteps();
+}
+function saveWorkoutFromBuilder(){
+  const name=document.getElementById('wkt-builder-name').value.trim();
+  if(!name){alert('Enter a workout name');return;}
+  if(!_wktSteps.length){alert('Add at least one step');return;}
+  const workouts=loadWorkouts();
+  if(_wktEditId){
+    const idx=workouts.findIndex(w=>w.id===_wktEditId);
+    if(idx>=0){workouts[idx]={...workouts[idx],name,steps:JSON.parse(JSON.stringify(_wktSteps))};}
+    else workouts.push({id:_wktEditId,name,steps:JSON.parse(JSON.stringify(_wktSteps))});
+  }else{
+    workouts.push({id:Date.now().toString(),name,steps:JSON.parse(JSON.stringify(_wktSteps))});
+  }
+  saveWorkouts(workouts);
+  detachBuilder();
+  _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+  renderWorkoutList();toast('"'+name+'" saved');
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// TAB WIRING + INIT
+// ──────────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  };
+});
+document.getElementById('coach-lap-btn').addEventListener('click',()=>CoachSync.sendLap());
+document.getElementById('save-squad-btn').addEventListener('click',()=>{
+  setSquadCode(document.getElementById('squad-code-input').value);
+  setCoachName(document.getElementById('coach-name-input').value);
+  CoachSync.listen();
+  toast(getSquadCode()?'Connected to squad '+getSquadCode():'Squad code cleared');
+});
+
+document.getElementById('squad-code-input').value=getSquadCode();
+document.getElementById('coach-name-input').value=getCoachName();
+renderWorkoutList();
+wireWorkoutBuilder();
+renderRowerGrid();
+if(getSquadCode())CoachSync.listen();
+</script>
+</body>
+</html>
