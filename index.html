@@ -132,7 +132,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rd-wkt-info{font-size:10px;color:#666;letter-spacing:.04em;margin-top:7px;line-height:1.4;}
 .chart-card{background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:8px;border:1px solid #eee;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .chart-card-row{display:flex;align-items:center;gap:10px;}
-.chart-card-info{flex-shrink:0;width:72px;}
+.chart-card-info{flex-shrink:0;width:72px;text-align:right;}
 .chart-card-lbl{font-size:8px;color:#888;letter-spacing:.06em;text-transform:uppercase;}
 .chart-card-val{font-size:16px;font-weight:700;color:#222;margin-top:2px;}
 .mini-canvas{flex:1;height:40px;display:block;min-width:0;}
@@ -312,8 +312,14 @@ const CoachSync = (() => {
             _es.addEventListener('patch', e => handle(e.data));
             _es.onopen = () => updateConnPill(true);
             _es.onerror = () => updateConnPill(false);
+            this.pushCoachName();
         },
         stop() { if (_es) { _es.close(); _es = null; } _rowers = {}; updateConnPill(false); },
+        async pushCoachName() {
+            const code = getSquadCode(); const name = getCoachName();
+            if (!code || !name) return;
+            try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/coachName.json', { method: 'PUT', body: JSON.stringify({ name, t: Date.now() }) }); } catch {}
+        },
         async sendLap() {
             const code = getSquadCode(); if (!code) { toast('Set a squad code first'); return; }
             try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/lap.json', { method: 'PUT', body: JSON.stringify({ t: Date.now() }) }); toast('Lap sent'); }
@@ -507,8 +513,8 @@ function renderRowerCharts() {
         const dispVal = lastVal == null ? '--' : (m.isPace ? (lastVal > 0 ? fmt(lastVal) : '--:--') : (Number.isInteger(lastVal) ? lastVal : lastVal.toFixed(1)));
         return `<div class="chart-card">
             <div class="chart-card-row">
-                <div class="chart-card-info"><div class="chart-card-lbl">${m.label}</div><div class="chart-card-val">${dispVal}</div></div>
                 <canvas id="chart-${m.key}" class="mini-canvas"></canvas>
+                <div class="chart-card-info"><div class="chart-card-lbl">${m.label}</div><div class="chart-card-val">${dispVal}</div></div>
             </div>
         </div>`;
     }).join('');
