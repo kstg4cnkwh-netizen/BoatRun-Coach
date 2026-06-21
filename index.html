@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BoatRun Coach"/>
 <meta name="theme-color" content="#1a5276"/>
+<link rel="manifest" href="./manifest.json"/>
 <title>BoatRun Coach</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -947,6 +948,7 @@ renderChartWindowToggles();
 wireRowerGrid();
 renderRowerGrid();
 if(getSquadCode())CoachSync.listen();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 </script>
 </body>
 </html>
