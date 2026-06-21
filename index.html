@@ -118,10 +118,24 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rd-primary-val{font-family:"Roboto Condensed",sans-serif;font-size:54px;font-weight:700;color:#1a5276;line-height:1;}
 .rd-primary-lbl{font-size:10px;color:#999;letter-spacing:.1em;margin-top:4px;}
 .rd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-.rd-card{background:#f6f6f6;border-radius:6px;padding:14px;text-align:center;}
-.rd-card-v{font-size:22px;font-weight:700;color:#222;}
-.rd-card-l{font-size:9px;color:#999;letter-spacing:.08em;margin-top:4px;}
-.rd-age{text-align:center;font-size:10px;color:#bbb;margin-top:18px;}
+.rd-age{text-align:center;font-size:10px;color:#bbb;margin-top:14px;}
+.wkt-phase{font-size:11px;font-weight:700;letter-spacing:.1em;padding:4px 9px;border-radius:3px;flex-shrink:0;}
+.wkt-phase.warmup{background:#5dade2;color:#fff;}
+.wkt-phase.work{background:#e67e22;color:#fff;}
+.wkt-phase.rest{background:#f39c12;color:#000;}
+.wkt-phase.cooldown{background:#8e44ad;color:#fff;}
+.wkt-phase.done{background:#888;color:#fff;}
+.wkt-phase.ready{background:#27ae60;color:#fff;}
+.rd-wkt-bar{background:#f5f5f5;border:1px solid #e6e6e6;border-radius:6px;padding:10px 12px;margin-bottom:18px;}
+.rd-wkt-top{display:flex;align-items:center;gap:10px;}
+.rd-wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:20px;font-weight:700;color:#1a5276;}
+.rd-wkt-info{font-size:10px;color:#666;letter-spacing:.04em;margin-top:7px;line-height:1.4;}
+.chart-card{background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:8px;border:1px solid #eee;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.chart-card-row{display:flex;align-items:center;gap:10px;}
+.chart-card-info{flex-shrink:0;width:72px;}
+.chart-card-lbl{font-size:8px;color:#888;letter-spacing:.06em;text-transform:uppercase;}
+.chart-card-val{font-size:16px;font-weight:700;color:#222;margin-top:2px;}
+.mini-canvas{flex:1;height:40px;display:block;min-width:0;}
 
 /* Toast */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
@@ -189,7 +203,24 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
     <button class="rd-back" id="rd-back-btn">&#8592;</button>
     <span class="rd-title" id="rd-title">Rower</span>
   </div>
-  <div class="rd-body" id="rower-detail-content"></div>
+  <div class="rd-body" id="rower-detail-content">
+    <div id="rd-disconnected" style="display:none;text-align:center;color:#bbb;padding:40px 20px;font-size:12px;">Disconnected — no recent data.</div>
+    <div class="rd-wkt-bar" id="rd-wkt-bar" style="display:none;">
+      <div class="rd-wkt-top">
+        <span class="wkt-phase" id="rd-wkt-phase"></span>
+        <span class="rd-wkt-countdown" id="rd-wkt-countdown"></span>
+      </div>
+      <div class="rd-wkt-info" id="rd-wkt-info"></div>
+    </div>
+    <div class="rd-primary" id="rd-primary">
+      <div class="rd-primary-item"><div class="rd-primary-val" id="rd-rate-val">--</div><div class="rd-primary-lbl">SPM</div></div>
+      <div class="rd-primary-item"><div class="rd-primary-val" id="rd-pace-val">--:--</div><div class="rd-primary-lbl">/500m PACE</div></div>
+    </div>
+    <div class="setup-section" id="rd-trends-hdr">TRENDS</div>
+    <div class="metric-tog-row" id="chart-window-row"></div>
+    <div id="rd-charts"></div>
+    <div class="rd-age" id="rd-age"></div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -265,13 +296,14 @@ const CoachSync = (() => {
                     _rowers = {};
                     const snap = msg.data || {};
                     Object.keys(snap).forEach(id => { if (snap[id] && snap[id].live) _rowers[id] = snap[id].live; });
+                    Object.keys(_rowers).forEach(id => pushHistory(id, _rowers[id]));
                 } else {
                     const parts = msg.path.split('/').filter(Boolean); // [deviceId] or [deviceId,'live']
                     if (!parts.length) return;
                     const id = parts[0];
                     if (msg.data === null) { delete _rowers[id]; }
-                    else if (parts.length === 1) { if (msg.data && msg.data.live) _rowers[id] = msg.data.live; }
-                    else if (parts[1] === 'live') { _rowers[id] = msg.data; }
+                    else if (parts.length === 1) { if (msg.data && msg.data.live) { _rowers[id] = msg.data.live; pushHistory(id, _rowers[id]); } }
+                    else if (parts[1] === 'live') { _rowers[id] = msg.data; pushHistory(id, _rowers[id]); }
                 }
                 renderRowerGrid();
                 renderRowerDetail();
@@ -375,26 +407,141 @@ function closeRowerDetail() {
     _detailRowerId = null;
     document.getElementById('rower-detail-overlay').classList.remove('open');
 }
+function renderRowerWorkout(r) {
+    const bar = document.getElementById('rd-wkt-bar');
+    if (!r || !r.workout || !r.workout.active) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    const w = r.workout;
+    const phaseEl = document.getElementById('rd-wkt-phase');
+    const cdEl = document.getElementById('rd-wkt-countdown');
+    const infoEl = document.getElementById('rd-wkt-info');
+    if (w.waiting) {
+        phaseEl.textContent = 'READY'; phaseEl.className = 'wkt-phase ready';
+        cdEl.textContent = 'ROW!';
+        infoEl.textContent = (w.name || 'Workout') + ' — waiting to start';
+        return;
+    }
+    phaseEl.textContent = (w.type || '').toUpperCase(); phaseEl.className = 'wkt-phase ' + (w.type || '');
+    cdEl.textContent = w.countdown || '--';
+    const gl = w.groupLabel ? (' · ' + w.groupLabel) : '';
+    infoEl.textContent = (w.name || 'Workout') + ' ' + (w.prog || '') + gl + (w.hint ? ' · ' + w.hint : '');
+}
+
+// ── Rolling history buffers, for trend charts ──────────────────────────────
+const HIST_KEYS = ['rate', 'pace', 'dist', 'strokes', 'laps', 'elapsed', 'dps', 'ratio', 'runLoss', 'catch', 'catchDur', 'impulse', 'char', 'oarAngle', 'checkDelta'];
+const HISTORY_MAX_POINTS = 1000; // ~33min at the 2s broadcast cadence — comfortably covers the 30min chart window
+let _history = {};
+function pushHistory(id, r) {
+    if (!r || !r.t) return;
+    if (!_history[id]) _history[id] = { t: [] };
+    const h = _history[id];
+    if (h.t.length && h.t[h.t.length - 1] === r.t) return; // dedupe identical timestamp (snapshot replay)
+    h.t.push(r.t);
+    HIST_KEYS.forEach(k => { (h[k] = h[k] || []).push(r[k] != null ? r[k] : null); });
+    if (h.t.length > HISTORY_MAX_POINTS) {
+        h.t.shift();
+        HIST_KEYS.forEach(k => h[k].shift());
+    }
+}
+const CHART_WINDOWS = [
+    { key: '10s', ms: 10000,   label: '10S' },
+    { key: '30s', ms: 30000,   label: '30S' },
+    { key: '1m',  ms: 60000,   label: '1M' },
+    { key: '2m',  ms: 120000,  label: '2M' },
+    { key: '5m',  ms: 300000,  label: '5M' },
+    { key: '10m', ms: 600000,  label: '10M' },
+    { key: '30m', ms: 1800000, label: '30M' }
+];
+function getChartWindow() {
+    try { const v = _LS.getItem('_coach_chart_window'); if (v && CHART_WINDOWS.find(w => w.key === v)) return v; } catch {}
+    return '5m';
+}
+function setChartWindow(k) { try { _LS.setItem('_coach_chart_window', k); } catch {} }
+function renderChartWindowToggles() {
+    const el = document.getElementById('chart-window-row'); if (!el) return;
+    const cur = getChartWindow();
+    el.innerHTML = CHART_WINDOWS.map(w => `<button class="metric-tog-btn${w.key === cur ? ' sel' : ''}" data-win="${w.key}">${w.label}</button>`).join('');
+    el.querySelectorAll('[data-win]').forEach(btn => {
+        btn.onclick = () => { setChartWindow(btn.dataset.win); renderChartWindowToggles(); renderRowerCharts(); };
+    });
+}
+function drawSparkline(id, rawData) {
+    const c = document.getElementById(id); if (!c) return;
+    const data = (rawData || []).filter(v => v != null && isFinite(v));
+    const ratio = window.devicePixelRatio || 1, W = c.offsetWidth * ratio, H = c.offsetHeight * ratio;
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d'); ctx.clearRect(0, 0, W, H);
+    if (data.length < 2) return;
+    const lo = Math.min(...data), hi = Math.max(...data);
+    const rng = (hi - lo) || Math.abs(hi) * 0.1 || 1;
+    const mn = lo - rng * 0.08, mx = hi + rng * 0.08;
+    const range = (mx - mn) || 1, pad = 3;
+    const sy = v => (H - pad) - (((v - mn) / range) * (H - pad * 2));
+    ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 2; i++) { const y = pad + i * (H - pad * 2) / 2; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    const color = '#1a5276';
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, color + '33'); g.addColorStop(1, color + '05');
+    ctx.beginPath(); data.forEach((v, i) => { const x = (i / (data.length - 1)) * W; i === 0 ? ctx.moveTo(x, sy(v)) : ctx.lineTo(x, sy(v)); });
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); data.forEach((v, i) => { const x = (i / (data.length - 1)) * W; i === 0 ? ctx.moveTo(x, sy(v)) : ctx.lineTo(x, sy(v)); });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5 * ratio; ctx.lineJoin = 'round'; ctx.stroke();
+}
+function renderRowerCharts() {
+    const wrap = document.getElementById('rd-charts'); if (!wrap || !_detailRowerId) return;
+    const h = _history[_detailRowerId];
+    const win = CHART_WINDOWS.find(w => w.key === getChartWindow()) || CHART_WINDOWS[4];
+    const chartMetrics = [
+        { key: 'rate', label: 'STROKE RATE', isPace: false },
+        { key: 'pace', label: 'PACE /500m', isPace: true }
+    ].concat(getSelectedMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean).map(d => ({ key: d.key, label: d.label, isPace: false })));
+    if (!h || !h.t.length) {
+        wrap.innerHTML = '<div style="text-align:center;color:#bbb;font-size:11px;padding:16px 0;">Not enough data yet.</div>';
+        return;
+    }
+    const cutoff = Date.now() - win.ms;
+    let startIdx = h.t.findIndex(t => t >= cutoff);
+    if (startIdx === -1) startIdx = h.t.length - 1;
+    wrap.innerHTML = chartMetrics.map(m => {
+        const vals = (h[m.key] || []).slice(startIdx);
+        const lastVal = [...vals].reverse().find(v => v != null);
+        const dispVal = lastVal == null ? '--' : (m.isPace ? (lastVal > 0 ? fmt(lastVal) : '--:--') : (Number.isInteger(lastVal) ? lastVal : lastVal.toFixed(1)));
+        return `<div class="chart-card">
+            <div class="chart-card-row">
+                <div class="chart-card-info"><div class="chart-card-lbl">${m.label}</div><div class="chart-card-val">${dispVal}</div></div>
+                <canvas id="chart-${m.key}" class="mini-canvas"></canvas>
+            </div>
+        </div>`;
+    }).join('');
+    chartMetrics.forEach(m => drawSparkline('chart-' + m.key, (h[m.key] || []).slice(startIdx)));
+}
 function renderRowerDetail() {
     if (!_detailRowerId) return;
     const r = CoachSync.rowers()[_detailRowerId];
     document.getElementById('rd-title').textContent = r ? (r.name || 'Rower') : 'Rower';
-    const wrap = document.getElementById('rower-detail-content'); if (!wrap) return;
-    if (!r) { wrap.innerHTML = '<div style="text-align:center;color:#bbb;padding:40px 20px;">Disconnected — no recent data.</div>'; return; }
-    const now = Date.now();
-    const age = r.t ? Math.round((now - r.t) / 1000) : null;
-    const metrics = getSelectedMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean);
-    wrap.innerHTML = `
-        <div class="rd-primary">
-            <div class="rd-primary-item"><div class="rd-primary-val">${r.rate || '--'}</div><div class="rd-primary-lbl">SPM</div></div>
-            <div class="rd-primary-item"><div class="rd-primary-val">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rd-primary-lbl">/500m PACE</div></div>
-        </div>
-        <div class="rd-grid">${metrics.map(d => `<div class="rd-card"><div class="rd-card-v">${d.fmt(r)}</div><div class="rd-card-l">${d.label}</div></div>`).join('')}</div>
-        <div class="rd-age">${age != null ? age + 's ago' : 'no data'}</div>
-    `;
+    const disc = document.getElementById('rd-disconnected');
+    if (!r) {
+        disc.style.display = 'block';
+        document.getElementById('rd-wkt-bar').style.display = 'none';
+        document.getElementById('rd-primary').style.display = 'none';
+        document.getElementById('rd-trends-hdr').style.display = 'none';
+        document.getElementById('chart-window-row').style.display = 'none';
+        document.getElementById('rd-charts').innerHTML = '';
+        document.getElementById('rd-age').textContent = '';
+        return;
+    }
+    disc.style.display = 'none';
+    document.getElementById('rd-primary').style.display = 'flex';
+    document.getElementById('rd-trends-hdr').style.display = 'block';
+    document.getElementById('chart-window-row').style.display = 'flex';
+    document.getElementById('rd-rate-val').textContent = r.rate || '--';
+    document.getElementById('rd-pace-val').textContent = r.pace > 0 ? fmt(r.pace) : '--:--';
+    renderRowerWorkout(r);
+    renderRowerCharts();
+    const age = r.t ? Math.round((Date.now() - r.t) / 1000) : null;
+    document.getElementById('rd-age').textContent = age != null ? age + 's ago' : 'no data';
 }
 function tickLiveViews() { renderRowerGrid(); renderRowerDetail(); }
-setInterval(tickLiveViews, 2000); // keeps "Xs ago" / stale state ticking between updates
+setInterval(tickLiveViews, 2000); // keeps "Xs ago" / stale state ticking, and re-draws charts as the window slides
 function generateSquadCode() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // excludes 0/O/1/I/L to avoid misreads
     let code = '';
@@ -790,6 +937,7 @@ document.getElementById('coach-name-input').value=getCoachName();
 renderWorkoutList();
 wireWorkoutBuilder();
 renderMetricToggles();
+renderChartWindowToggles();
 wireRowerGrid();
 renderRowerGrid();
 if(getSquadCode())CoachSync.listen();
