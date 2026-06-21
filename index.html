@@ -32,9 +32,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rower-tile{background:#fff;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #27ae60;}
 .rower-tile.stale{border-left-color:#ccc;opacity:.55;}
 .rt-name{font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rt-rate{font-family:"Roboto Condensed",sans-serif;font-size:30px;font-weight:700;color:#1a5276;line-height:1.1;margin:4px 0 0;}
-.rt-rate-lbl{font-size:8px;color:#999;letter-spacing:.08em;}
-.rt-stats{display:flex;gap:10px;margin-top:6px;font-size:10px;color:#555;flex-wrap:wrap;}
+.rt-primary{display:flex;gap:14px;margin-top:4px;}
+.rt-primary-item{display:flex;flex-direction:column;}
+.rt-primary-val{font-family:"Roboto Condensed",sans-serif;font-size:24px;font-weight:700;color:#1a5276;line-height:1.05;}
+.rt-primary-lbl{font-size:7px;color:#999;letter-spacing:.08em;margin-top:1px;}
+.rt-stats{display:flex;gap:10px;margin-top:7px;font-size:10px;color:#555;flex-wrap:wrap;}
 .rt-chip{display:flex;flex-direction:column;align-items:flex-start;}
 .rt-chip-v{font-size:12px;font-weight:700;color:#222;line-height:1.2;}
 .rt-chip-l{font-size:7px;color:#aaa;letter-spacing:.05em;}
@@ -100,6 +102,26 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .wkt-actions{display:flex;gap:6px;margin-top:10px;}
 .wkt-btn{flex:1;padding:10px 4px;border-radius:3px;border:none;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
 .wkt-btn.load{background:#27ae60;color:#fff;}.wkt-btn.del{background:#fff;color:#c0392b;border:1px solid #e0e0e0;}.wkt-btn.new-w{background:#1a5276;color:#fff;}.wkt-btn.save{background:#1a5276;color:#fff;}
+.wkt-btn.small{display:inline-block;padding:7px 14px;font-size:9px;align-self:flex-start;flex:none;}
+.code-row{display:flex;gap:6px;align-items:center;}
+.code-row .setup-input{flex:1;margin-bottom:8px;}
+
+/* Full-screen rower detail */
+.rower-detail-overlay{position:fixed;inset:0;background:#fff;z-index:50;display:none;flex-direction:column;}
+.rower-detail-overlay.open{display:flex;}
+.rd-header{background:#1a5276;color:#fff;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.rd-back{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 8px 0 0;touch-action:manipulation;line-height:1;}
+.rd-title{font-size:14px;font-weight:700;letter-spacing:.05em;flex:1;}
+.rd-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 16px;}
+.rd-primary{display:flex;gap:24px;justify-content:center;margin:6px 0 24px;}
+.rd-primary-item{text-align:center;}
+.rd-primary-val{font-family:"Roboto Condensed",sans-serif;font-size:54px;font-weight:700;color:#1a5276;line-height:1;}
+.rd-primary-lbl{font-size:10px;color:#999;letter-spacing:.1em;margin-top:4px;}
+.rd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.rd-card{background:#f6f6f6;border-radius:6px;padding:14px;text-align:center;}
+.rd-card-v{font-size:22px;font-weight:700;color:#222;}
+.rd-card-l{font-size:9px;color:#999;letter-spacing:.08em;margin-top:4px;}
+.rd-age{text-align:center;font-size:10px;color:#bbb;margin-top:18px;}
 
 /* Toast */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
@@ -127,7 +149,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 
 <div class="tab-panel" id="panel-workouts">
   <div id="workout-list-container"></div>
-  <button class="wkt-btn new-w" style="width:100%;margin-top:4px;" id="new-wkt-btn">+ NEW WORKOUT</button>
+  <button class="wkt-btn new-w small" id="new-wkt-btn">+ NEW WORKOUT</button>
   <div id="wkt-builder-wrap" style="display:none;margin-top:8px;">
     <div class="wkt-builder">
       <input type="text" class="setup-input" id="wkt-builder-name" placeholder="Workout name"/>
@@ -151,12 +173,23 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 
 <div class="tab-panel" id="panel-settings">
   <div class="setup-section">SQUAD</div>
-  <input id="squad-code-input" type="text" class="setup-input" placeholder="Squad code (e.g. RC7K)" maxlength="8" style="text-transform:uppercase;"/>
+  <div class="code-row">
+    <input id="squad-code-input" type="text" class="setup-input" placeholder="Squad code (e.g. RC7K)" maxlength="8" style="text-transform:uppercase;"/>
+    <button class="wkt-btn new-w small" id="gen-code-btn">GENERATE</button>
+  </div>
   <input id="coach-name-input" type="text" class="setup-input" placeholder="Your name (e.g. Coach Smith)" maxlength="24"/>
-  <button class="wkt-btn save" style="width:100%;" id="save-squad-btn">SAVE &amp; CONNECT</button>
+  <button class="wkt-btn save small" id="save-squad-btn">SAVE &amp; CONNECT</button>
   <div class="setup-section">LIVE TILE METRICS</div>
   <div class="metric-tog-row" id="metric-toggle-row"></div>
-  <div style="font-size:10px;color:#999;margin-top:10px;line-height:1.6;">Rowers enter this same squad code in their Metrics app (Settings tab) to connect. Workouts you save here are pushed to the squad, not stored on rowers' phones automatically — push again any time.</div>
+  <div style="font-size:10px;color:#999;margin-top:10px;line-height:1.6;">Tap GENERATE for a fresh random squad code each session — avoids accidentally overlapping with another crew using a guessable code. Rowers enter the same code in their Metrics app (Settings tab) to connect. Workouts you save here are pushed to the squad, not stored on rowers' phones automatically — push again any time.</div>
+</div>
+
+<div class="rower-detail-overlay" id="rower-detail-overlay">
+  <div class="rd-header">
+    <button class="rd-back" id="rd-back-btn">&#8592;</button>
+    <span class="rd-title" id="rd-title">Rower</span>
+  </div>
+  <div class="rd-body" id="rower-detail-content"></div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -241,6 +274,7 @@ const CoachSync = (() => {
                     else if (parts[1] === 'live') { _rowers[id] = msg.data; }
                 }
                 renderRowerGrid();
+                renderRowerDetail();
             };
             _es.addEventListener('put', e => handle(e.data));
             _es.addEventListener('patch', e => handle(e.data));
@@ -265,7 +299,6 @@ function updateConnPill(on) {
     p.textContent = on ? 'CONNECTED' : 'OFFLINE'; p.classList.toggle('on', !!on);
 }
 const LIVE_METRIC_DEFS = [
-    { key: 'pace',       label: 'PACE /500', fmt: r => r.pace > 0 ? fmt(r.pace) : '--:--' },
     { key: 'dist',       label: 'DIST',      fmt: r => r.dist != null ? r.dist + 'm' : '--' },
     { key: 'dps',        label: 'DPS',       fmt: r => r.dps != null ? r.dps.toFixed(1) + 'm' : '--' },
     { key: 'ratio',      label: 'RATIO',     fmt: r => r.ratio != null ? r.ratio.toFixed(1) : '--' },
@@ -280,7 +313,7 @@ const LIVE_METRIC_DEFS = [
     { key: 'laps',       label: 'LAPS',      fmt: r => r.laps || 0 },
     { key: 'elapsed',    label: 'TIME',      fmt: r => fmt(r.elapsed || 0) }
 ];
-const DEFAULT_LIVE_METRICS = ['pace', 'dist', 'laps'];
+const DEFAULT_LIVE_METRICS = ['dist', 'laps'];
 function getSelectedMetrics() {
     try { const v = JSON.parse(_LS.getItem('_coach_live_metrics')); if (Array.isArray(v) && v.length) return v; } catch {}
     return DEFAULT_LIVE_METRICS.slice();
@@ -298,6 +331,7 @@ function renderMetricToggles() {
             setSelectedMetrics(s);
             renderMetricToggles();
             renderRowerGrid();
+            renderRowerDetail();
         };
     });
 }
@@ -313,16 +347,60 @@ function renderRowerGrid() {
         const age = r.t ? Math.round((now - r.t) / 1000) : null;
         const stale = age == null || age > 8;
         const chips = metrics.map(d => `<div class="rt-chip"><div class="rt-chip-v">${d.fmt(r)}</div><div class="rt-chip-l">${d.label}</div></div>`).join('');
-        return `<div class="rower-tile${stale ? ' stale' : ''}">
+        return `<div class="rower-tile${stale ? ' stale' : ''}" data-id="${id}">
             <div class="rt-name">${(r.name || 'Rower')}</div>
-            <div class="rt-rate">${r.rate || '--'}</div>
-            <div class="rt-rate-lbl">SPM</div>
+            <div class="rt-primary">
+                <div class="rt-primary-item"><div class="rt-primary-val">${r.rate || '--'}</div><div class="rt-primary-lbl">SPM</div></div>
+                <div class="rt-primary-item"><div class="rt-primary-val">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rt-primary-lbl">/500 PACE</div></div>
+            </div>
             <div class="rt-stats">${chips}</div>
             <div class="rt-age">${age != null ? age + 's ago' : 'no data'}</div>
         </div>`;
     }).join('');
 }
-setInterval(renderRowerGrid, 2000); // keeps "Xs ago" / stale state ticking between updates
+function wireRowerGrid() {
+    document.getElementById('rower-grid').addEventListener('click', e => {
+        const tile = e.target.closest('.rower-tile[data-id]');
+        if (tile) openRowerDetail(tile.dataset.id);
+    });
+    document.getElementById('rd-back-btn').addEventListener('click', closeRowerDetail);
+}
+let _detailRowerId = null;
+function openRowerDetail(id) {
+    _detailRowerId = id;
+    document.getElementById('rower-detail-overlay').classList.add('open');
+    renderRowerDetail();
+}
+function closeRowerDetail() {
+    _detailRowerId = null;
+    document.getElementById('rower-detail-overlay').classList.remove('open');
+}
+function renderRowerDetail() {
+    if (!_detailRowerId) return;
+    const r = CoachSync.rowers()[_detailRowerId];
+    document.getElementById('rd-title').textContent = r ? (r.name || 'Rower') : 'Rower';
+    const wrap = document.getElementById('rower-detail-content'); if (!wrap) return;
+    if (!r) { wrap.innerHTML = '<div style="text-align:center;color:#bbb;padding:40px 20px;">Disconnected — no recent data.</div>'; return; }
+    const now = Date.now();
+    const age = r.t ? Math.round((now - r.t) / 1000) : null;
+    const metrics = getSelectedMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean);
+    wrap.innerHTML = `
+        <div class="rd-primary">
+            <div class="rd-primary-item"><div class="rd-primary-val">${r.rate || '--'}</div><div class="rd-primary-lbl">SPM</div></div>
+            <div class="rd-primary-item"><div class="rd-primary-val">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rd-primary-lbl">/500m PACE</div></div>
+        </div>
+        <div class="rd-grid">${metrics.map(d => `<div class="rd-card"><div class="rd-card-v">${d.fmt(r)}</div><div class="rd-card-l">${d.label}</div></div>`).join('')}</div>
+        <div class="rd-age">${age != null ? age + 's ago' : 'no data'}</div>
+    `;
+}
+function tickLiveViews() { renderRowerGrid(); renderRowerDetail(); }
+setInterval(tickLiveViews, 2000); // keeps "Xs ago" / stale state ticking between updates
+function generateSquadCode() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // excludes 0/O/1/I/L to avoid misreads
+    let code = '';
+    for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // WORKOUT BUILDER — same as Metrics app (LOAD replaced with PUSH TO SQUAD)
@@ -696,6 +774,10 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   };
 });
 document.getElementById('coach-lap-btn').addEventListener('click',()=>CoachSync.sendLap());
+document.getElementById('gen-code-btn').addEventListener('click',()=>{
+  document.getElementById('squad-code-input').value=generateSquadCode();
+  toast('New code generated — tap SAVE & CONNECT, then share it with your rowers');
+});
 document.getElementById('save-squad-btn').addEventListener('click',()=>{
   setSquadCode(document.getElementById('squad-code-input').value);
   setCoachName(document.getElementById('coach-name-input').value);
@@ -708,6 +790,7 @@ document.getElementById('coach-name-input').value=getCoachName();
 renderWorkoutList();
 wireWorkoutBuilder();
 renderMetricToggles();
+wireRowerGrid();
 renderRowerGrid();
 if(getSquadCode())CoachSync.listen();
 </script>
