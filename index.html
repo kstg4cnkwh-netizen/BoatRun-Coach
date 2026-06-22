@@ -11,6 +11,8 @@
 <link rel="manifest" href="./manifest.json"/>
 <title>BoatRun Coach</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:none}
@@ -220,6 +222,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
     <div class="setup-section" id="rd-trends-hdr">TRENDS</div>
     <div class="metric-tog-row" id="chart-window-row"></div>
     <div id="rd-charts"></div>
+    <div id="rd-map" style="height:220px;border-radius:6px;margin-bottom:10px;overflow:hidden;position:relative;z-index:1;"></div>
     <div class="rd-age" id="rd-age"></div>
   </div>
 </div>
@@ -409,10 +412,12 @@ function openRowerDetail(id) {
     _detailRowerId = id;
     document.getElementById('rower-detail-overlay').classList.add('open');
     renderRowerDetail();
+    setTimeout(() => RowerMap.update(id), 80);
 }
 function closeRowerDetail() {
     _detailRowerId = null;
     document.getElementById('rower-detail-overlay').classList.remove('open');
+    RowerMap.destroy();
 }
 function renderRowerWorkout(r) {
     const bar = document.getElementById('rd-wkt-bar');
@@ -435,7 +440,7 @@ function renderRowerWorkout(r) {
 }
 
 // ── Rolling history buffers, for trend charts ──────────────────────────────
-const HIST_KEYS = ['rate', 'pace', 'dist', 'strokes', 'laps', 'elapsed', 'dps', 'ratio', 'runLoss', 'catch', 'catchDur', 'impulse', 'char', 'oarAngle', 'checkDelta'];
+const HIST_KEYS = ['rate', 'pace', 'dist', 'strokes', 'laps', 'elapsed', 'dps', 'ratio', 'runLoss', 'catch', 'catchDur', 'impulse', 'char', 'oarAngle', 'checkDelta', 'lat', 'lon'];
 const HISTORY_MAX_POINTS = 1000; // ~33min at the 2s broadcast cadence — comfortably covers the 30min chart window
 let _history = {};
 function pushHistory(id, r) {
@@ -450,6 +455,33 @@ function pushHistory(id, r) {
         HIST_KEYS.forEach(k => h[k].shift());
     }
 }
+const RowerMap = (() => {
+    let _map = null, _marker = null, _track = null;
+    function _ensureInit() {
+        if (_map) return true;
+        const el = document.getElementById('rd-map');
+        if (!el || el.offsetHeight === 0) return false;
+        _map = L.map(el, { zoomControl: true, attributionControl: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_map);
+        return true;
+    }
+    return {
+        update(id) {
+            if (!_ensureInit()) return;
+            _map.invalidateSize();
+            const r = CoachSync.rowers()[id];
+            const h = _history[id];
+            if (!r || r.lat == null || r.lon == null) return;
+            const pos = [r.lat, r.lon];
+            if (_marker) { _marker.setLatLng(pos); }
+            else { _marker = L.circleMarker(pos, { radius: 9, color: '#fff', fillColor: '#27ae60', fillOpacity: 1, weight: 2.5 }).addTo(_map); _map.setView(pos, 16); }
+            const pts = [];
+            if (h && h.lat) { for (let i = 0; i < h.lat.length; i++) { if (h.lat[i] != null && h.lon[i] != null) pts.push([h.lat[i], h.lon[i]]); } }
+            if (_track) { _track.setLatLngs(pts); } else if (pts.length > 1) { _track = L.polyline(pts, { color: '#1a5276', weight: 3, opacity: 0.75 }).addTo(_map); }
+        },
+        destroy() { if (_map) { _map.remove(); _map = null; _marker = null; _track = null; } }
+    };
+})();
 const CHART_WINDOWS = [
     { key: '10s', ms: 10000,   label: '10S' },
     { key: '30s', ms: 30000,   label: '30S' },
@@ -546,6 +578,7 @@ function renderRowerDetail() {
     renderRowerCharts();
     const age = r.t ? Math.round((Date.now() - r.t) / 1000) : null;
     document.getElementById('rd-age').textContent = age != null ? age + 's ago' : 'no data';
+    RowerMap.update(_detailRowerId);
 }
 function tickLiveViews() { renderRowerGrid(); renderRowerDetail(); }
 setInterval(tickLiveViews, 2000); // keeps "Xs ago" / stale state ticking, and re-draws charts as the window slides
