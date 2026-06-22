@@ -143,6 +143,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 /* Toast */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1}
+/* Live panel layout */
+#panel-live{padding:0;overflow:hidden;}
+.live-map-section{flex-shrink:0;}
+#live-map{height:220px;position:relative;z-index:1;}
+.live-scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 10px;}
+#panel-live .lap-btn-big{flex-shrink:0;border-radius:0;margin-top:0;}
+/* Live map rower/coach labels */
+.live-map-label{background:#27ae60!important;border-color:#27ae60!important;color:#fff!important;font-size:9px!important;font-weight:700!important;padding:2px 5px!important;white-space:nowrap!important;}
+.live-map-label-coach{background:#1a5276!important;border-color:#1a5276!important;}
+.live-map-label::before{display:none!important;}
 </style>
 </head>
 <body>
@@ -157,12 +167,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   <button class="tab-btn" data-tab="settings">SETTINGS</button>
 </div>
 
-<div class="tab-panel active" id="panel-live">
-  <div class="rower-grid" id="rower-grid">
-    <div class="empty-grid" id="empty-grid">No rowers connected yet.<br/>Set a squad code in Settings, and have rowers enter the same code in their Metrics app.</div>
-  </div>
-  <button class="lap-btn-big" id="coach-lap-btn">LAP — ALL BOATS</button>
-</div>
+function fmtRate(v){if(v==null||isNaN(Number(v)))return'--';const r=Math.round(Number(v)*2)/2;return Number.isInteger(r)?String(r):r.toFixed(1);}
 
 <div class="tab-panel" id="panel-workouts">
   <div id="workout-list-container"></div>
@@ -256,6 +261,7 @@ const fmt = s => {
     s = Math.max(0, Math.round(s));
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
+function fmtRate(v){if(v==null||isNaN(Number(v)))return'--';const r=Math.round(Number(v)*2)/2;return Number.isInteger(r)?String(r):r.toFixed(1);}
 const appSettings = { paceUnit: 'pace500', distUnit: 'km', dpsUnit: 'm' };
 function fmtPace(paceS500) {
     if (!paceS500 || paceS500 <= 0) return '--:--';
@@ -381,7 +387,7 @@ function renderRowerGrid() {
     const grid = document.getElementById('rower-grid'); if (!grid) return;
     const rowers = CoachSync.rowers();
     const ids = Object.keys(rowers);
-    if (!ids.length) { grid.innerHTML = '<div class="empty-grid" id="empty-grid">No rowers connected yet.<br/>Set a squad code in Settings, and have rowers enter the same code in their Metrics app.</div>'; return; }
+    if (!ids.length) { grid.innerHTML = '<div class="empty-grid" id="empty-grid">No rowers connected yet.<br/>Set a squad code in Settings, and have rowers enter the same code in their Metrics app.</div>'; LiveMap.update(); return; }
     const now = Date.now();
     const metrics = getSelectedMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean);
     grid.innerHTML = ids.map(id => {
@@ -392,13 +398,14 @@ function renderRowerGrid() {
         return `<div class="rower-tile${stale ? ' stale' : ''}" data-id="${id}">
             <div class="rt-name">${(r.name || 'Rower')}</div>
             <div class="rt-primary">
-                <div class="rt-primary-item"><div class="rt-primary-val">${r.rate || '--'}</div><div class="rt-primary-lbl">SPM</div></div>
+                <div class="rt-primary-item"><div class="rt-primary-val">${fmtRate(r.rate)}</div><div class="rt-primary-lbl">SPM</div></div>
                 <div class="rt-primary-item"><div class="rt-primary-val">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rt-primary-lbl">/500 PACE</div></div>
             </div>
             <div class="rt-stats">${chips}</div>
             <div class="rt-age">${age != null ? age + 's ago' : 'no data'}</div>
         </div>`;
     }).join('');
+    LiveMap.update();
 }
 function wireRowerGrid() {
     document.getElementById('rower-grid').addEventListener('click', e => {
@@ -455,6 +462,67 @@ function pushHistory(id, r) {
         HIST_KEYS.forEach(k => h[k].shift());
     }
 }
+const LiveMap = (() => {
+    let _map = null, _rowerMarkers = {}, _coachMarker = null, _watchId = null, _coachPos = null, _lastRowerIds = '';
+    function _ensureInit() {
+        if (_map) return true;
+        const el = document.getElementById('live-map');
+        if (!el || el.offsetHeight === 0) return false;
+        _map = L.map(el, { zoomControl: true, attributionControl: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_map);
+        return true;
+    }
+    function _rowerStyle(stale) { return { radius: 9, color: '#fff', fillColor: stale ? '#aaa' : '#27ae60', fillOpacity: 1, weight: 2.5 }; }
+    return {
+        init() {
+            if (!('geolocation' in navigator)) return;
+            _watchId = navigator.geolocation.watchPosition(pos => {
+                _coachPos = [pos.coords.latitude, pos.coords.longitude];
+                this.update();
+            }, null, { enableHighAccuracy: true, maximumAge: 3000 });
+        },
+        invalidate() { if (_map) setTimeout(() => _map.invalidateSize(), 100); },
+        update() {
+            if (!_ensureInit()) return;
+            _map.invalidateSize();
+            const rowers = CoachSync.rowers();
+            const ids = Object.keys(rowers);
+            const now = Date.now();
+            const allPts = [];
+            ids.forEach(id => {
+                const r = rowers[id];
+                if (!r || r.lat == null || r.lon == null) return;
+                const pos = [r.lat, r.lon];
+                const stale = !r.t || (now - r.t) > 8000;
+                allPts.push(pos);
+                if (_rowerMarkers[id]) {
+                    _rowerMarkers[id].setLatLng(pos);
+                    _rowerMarkers[id].setStyle({ fillColor: stale ? '#aaa' : '#27ae60' });
+                } else {
+                    const m = L.circleMarker(pos, _rowerStyle(stale))
+                        .bindTooltip(r.name || 'Rower', { permanent: true, direction: 'top', className: 'live-map-label' })
+                        .addTo(_map);
+                    m.on('click', () => openRowerDetail(id));
+                    _rowerMarkers[id] = m;
+                }
+            });
+            Object.keys(_rowerMarkers).forEach(id => {
+                if (!rowers[id]) { _rowerMarkers[id].remove(); delete _rowerMarkers[id]; }
+            });
+            if (_coachPos) {
+                allPts.push(_coachPos);
+                if (_coachMarker) { _coachMarker.setLatLng(_coachPos); }
+                else { _coachMarker = L.circleMarker(_coachPos, { radius: 9, color: '#fff', fillColor: '#1a5276', fillOpacity: 1, weight: 2.5 }).bindTooltip('YOU', { permanent: true, direction: 'top', className: 'live-map-label live-map-label-coach' }).addTo(_map); }
+            }
+            const idsKey = ids.slice().sort().join(',');
+            if (idsKey !== _lastRowerIds && allPts.length > 0) {
+                _lastRowerIds = idsKey;
+                if (allPts.length === 1) { _map.setView(allPts[0], 16); }
+                else { try { _map.fitBounds(L.latLngBounds(allPts).pad(0.25)); } catch {} }
+            }
+        }
+    };
+})();
 const RowerMap = (() => {
     let _map = null, _marker = null, _track = null;
     function _ensureInit() {
@@ -572,7 +640,7 @@ function renderRowerDetail() {
     document.getElementById('rd-primary').style.display = 'flex';
     document.getElementById('rd-trends-hdr').style.display = 'block';
     document.getElementById('chart-window-row').style.display = 'flex';
-    document.getElementById('rd-rate-val').textContent = r.rate || '--';
+    document.getElementById('rd-rate-val').textContent = fmtRate(r.rate);
     document.getElementById('rd-pace-val').textContent = r.pace > 0 ? fmt(r.pace) : '--:--';
     renderRowerWorkout(r);
     renderRowerCharts();
@@ -958,6 +1026,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='live')LiveMap.invalidate();
   };
 });
 document.getElementById('coach-lap-btn').addEventListener('click',()=>CoachSync.sendLap());
@@ -982,6 +1051,8 @@ wireRowerGrid();
 renderRowerGrid();
 if(getSquadCode())CoachSync.listen();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+LiveMap.init();
+setTimeout(()=>LiveMap.update(),200);
 </script>
 </body>
 </html>
