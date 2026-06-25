@@ -121,6 +121,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rower-detail-overlay.open{display:flex;}
 .rd-header{background:#1a5276;color:#fff;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .rd-back{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 8px 0 0;touch-action:manipulation;line-height:1;}
+.rd-lap{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.1em;padding:7px 12px;cursor:pointer;touch-action:manipulation;flex-shrink:0;font-family:'Roboto',sans-serif;}
 .rd-title{font-size:14px;font-weight:700;letter-spacing:.05em;flex:1;}
 .rd-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 16px;}
 .rd-primary{display:flex;gap:24px;justify-content:center;margin:6px 0 24px;}
@@ -228,6 +229,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   <div class="rd-header">
     <button class="rd-back" id="rd-back-btn">&#8592;</button>
     <span class="rd-title" id="rd-title">Rower</span>
+    <button class="rd-lap" id="rd-lap-btn">LAP</button>
   </div>
   <div class="rd-body" id="rower-detail-content">
     <div id="rd-disconnected" style="display:none;text-align:center;color:#bbb;padding:40px 20px;font-size:12px;">Disconnected — no recent data.</div>
@@ -389,6 +391,11 @@ const CoachSync = (() => {
             try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/lap.json', { method: 'PUT', body: JSON.stringify({ t: Date.now() }) }); toast('Lap sent'); }
             catch { toast('Send failed — check connection'); }
         },
+        async sendLapToRower(id) {
+            const code = getSquadCode(); if (!code) { toast('Set a squad code first'); return; }
+            try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/lap_' + id + '.json', { method: 'PUT', body: JSON.stringify({ t: Date.now() }) }); toast('Lap sent to boat'); }
+            catch { toast('Send failed — check connection'); }
+        },
         async pushWorkout(def) {
             const code = getSquadCode(); if (!code) { toast('Set a squad code first'); return; }
             try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/commands/workout.json', { method: 'PUT', body: JSON.stringify({ ...def, t: Date.now() }) }); toast('"' + def.name + '" pushed to squad'); }
@@ -424,16 +431,27 @@ function setSelectedMetrics(arr) { try { _LS.setItem('_coach_live_metrics', JSON
 function renderMetricToggles() {
     const el = document.getElementById('metric-toggle-row'); if (!el) return;
     const sel = getSelectedMetrics();
-    el.innerHTML = LIVE_METRIC_DEFS.map(d => `<button class="metric-tog-btn${sel.includes(d.key) ? ' sel' : ''}" data-key="${d.key}">${d.label}</button>`).join('');
-    el.querySelectorAll('.metric-tog-btn').forEach(btn => {
+    const allKeys = LIVE_METRIC_DEFS.map(d => d.key);
+    const isAll = allKeys.every(k => sel.includes(k));
+    el.innerHTML =
+        `<button class="metric-tog-btn${isAll ? ' sel' : ''}" id="mtog-all">ALL</button>` +
+        `<button class="metric-tog-btn${!sel.length ? ' sel' : ''}" id="mtog-none">NONE</button>` +
+        LIVE_METRIC_DEFS.map(d => `<button class="metric-tog-btn${sel.includes(d.key) ? ' sel' : ''}" data-key="${d.key}">${d.label}</button>`).join('');
+    document.getElementById('mtog-all').onclick = () => {
+        setSelectedMetrics(allKeys.slice());
+        renderMetricToggles(); renderRowerGrid(); renderRowerDetail();
+    };
+    document.getElementById('mtog-none').onclick = () => {
+        setSelectedMetrics([]);
+        renderMetricToggles(); renderRowerGrid(); renderRowerDetail();
+    };
+    el.querySelectorAll('.metric-tog-btn[data-key]').forEach(btn => {
         btn.onclick = () => {
             let s = getSelectedMetrics();
             const k = btn.dataset.key;
             s = s.includes(k) ? s.filter(x => x !== k) : [...s, k];
             setSelectedMetrics(s);
-            renderMetricToggles();
-            renderRowerGrid();
-            renderRowerDetail();
+            renderMetricToggles(); renderRowerGrid(); renderRowerDetail();
         };
     });
 }
@@ -467,6 +485,10 @@ function wireRowerGrid() {
         if (tile) openRowerDetail(tile.dataset.id);
     });
     document.getElementById('rd-back-btn').addEventListener('click', closeRowerDetail);
+    document.getElementById('rd-lap-btn').addEventListener('click', () => {
+        if (!_detailRowerId) return;
+        if (confirm('Send LAP to this boat?')) CoachSync.sendLapToRower(_detailRowerId);
+    });
 }
 let _detailRowerId = null;
 function openRowerDetail(id) {
@@ -1083,7 +1105,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.tab==='live')LiveMap.invalidate();
   };
 });
-document.getElementById('coach-lap-btn').addEventListener('click',()=>CoachSync.sendLap());
+document.getElementById('coach-lap-btn').addEventListener('click',()=>{
+  if(confirm('Send LAP to all connected boats?'))CoachSync.sendLap();
+});
 document.getElementById('gen-code-btn').addEventListener('click',()=>{
   document.getElementById('squad-code-input').value=generateSquadCode();
   toast('New code generated — tap SAVE & CONNECT, then share it with your rowers');
