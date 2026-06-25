@@ -108,6 +108,13 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .wkt-btn.small{display:inline-block;padding:7px 14px;font-size:9px;align-self:flex-start;flex:none;}
 .code-row{display:flex;gap:6px;align-items:center;}
 .code-row .setup-input{flex:1;margin-bottom:8px;}
+.code-hist{margin-top:10px;}
+.code-hist-label{font-size:9px;color:#999;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
+.code-hist-item{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:4px;border:1px solid #e0e0e0;background:#f9f9f9;margin-bottom:4px;cursor:pointer;font-size:11px;font-family:"Roboto",sans-serif;}
+.code-hist-item:hover{border-color:#1a5276;background:#eef3f8;}
+.code-hist-code{font-weight:700;color:#1a5276;min-width:56px;}
+.code-hist-name{color:#555;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.code-hist-dt{color:#aaa;font-size:9px;white-space:nowrap;}
 
 /* Full-screen rower detail */
 .rower-detail-overlay{position:fixed;inset:0;background:#fff;z-index:50;display:none;flex-direction:column;}
@@ -211,6 +218,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   </div>
   <input id="coach-name-input" type="text" class="setup-input" placeholder="Your name (e.g. Coach Smith)" maxlength="24"/>
   <button class="wkt-btn save small" id="save-squad-btn">SAVE &amp; CONNECT</button>
+  <div class="code-hist" id="code-history"></div>
   <div class="setup-section">LIVE TILE METRICS</div>
   <div class="metric-tog-row" id="metric-toggle-row"></div>
   <div style="font-size:10px;color:#999;margin-top:10px;line-height:1.6;">Tap GENERATE for a fresh random squad code each session — avoids accidentally overlapping with another crew using a guessable code. Rowers enter the same code in their Metrics app (Settings tab) to connect. Workouts you save here are pushed to the squad, not stored on rowers' phones automatically — push again any time.</div>
@@ -298,6 +306,42 @@ function getSquadCode() { try { return _LS.getItem('_coach_squad_code') || ''; }
 function setSquadCode(c) { try { _LS.setItem('_coach_squad_code', (c || '').trim().toUpperCase()); } catch {} }
 function getCoachName() { try { return _LS.getItem('_coach_name') || ''; } catch { return ''; } }
 function setCoachName(n) { try { _LS.setItem('_coach_name', (n || '').trim()); } catch {} }
+
+const CODE_HIST_KEY = '_coach_code_hist';
+function getCodeHist() { try { return JSON.parse(_LS.getItem(CODE_HIST_KEY)) || []; } catch { return []; } }
+function saveCodeHist(h) { try { _LS.setItem(CODE_HIST_KEY, JSON.stringify(h)); } catch {} }
+function addCodeHist(code, name) {
+    if (!code) return;
+    let h = getCodeHist().filter(x => x.code !== code);
+    h.unshift({ code, name: name || '', t: Date.now() });
+    if (h.length > 10) h = h.slice(0, 10);
+    saveCodeHist(h);
+}
+function renderCodeHistory() {
+    const el = document.getElementById('code-history');
+    if (!el) return;
+    const h = getCodeHist();
+    if (!h.length) { el.innerHTML = ''; return; }
+    const fmtDt = t => {
+        const d = new Date(t);
+        return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ' ' +
+               d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+    };
+    el.innerHTML = '<div class="code-hist-label">Recent codes</div>' +
+        h.map((x, i) => `<div class="code-hist-item" data-idx="${i}">` +
+            `<span class="code-hist-code">${x.code}</span>` +
+            `<span class="code-hist-name">${x.name ? x.name : ''}</span>` +
+            `<span class="code-hist-dt">${fmtDt(x.t)}</span>` +
+            `</div>`).join('');
+    el.querySelectorAll('.code-hist-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const x = h[+item.dataset.idx];
+            document.getElementById('squad-code-input').value = x.code;
+            if (x.name) document.getElementById('coach-name-input').value = x.name;
+            toast('Code ' + x.code + ' loaded — tap SAVE & CONNECT');
+        });
+    });
+}
 
 const CoachSync = (() => {
     let _es = null, _rowers = {};
@@ -1047,12 +1091,15 @@ document.getElementById('gen-code-btn').addEventListener('click',()=>{
 document.getElementById('save-squad-btn').addEventListener('click',()=>{
   setSquadCode(document.getElementById('squad-code-input').value);
   setCoachName(document.getElementById('coach-name-input').value);
+  addCodeHist(getSquadCode(), getCoachName());
+  renderCodeHistory();
   CoachSync.listen();
   toast(getSquadCode()?'Connected to squad '+getSquadCode():'Squad code cleared');
 });
 
 document.getElementById('squad-code-input').value=getSquadCode();
 document.getElementById('coach-name-input').value=getCoachName();
+renderCodeHistory();
 renderWorkoutList();
 wireWorkoutBuilder();
 renderMetricToggles();
