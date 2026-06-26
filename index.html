@@ -219,6 +219,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   </div>
   <input id="coach-name-input" type="text" class="setup-input" placeholder="Your name (e.g. Coach Smith)" maxlength="24"/>
   <button class="wkt-btn save small" id="save-squad-btn">SAVE &amp; CONNECT</button>
+  <button class="wkt-btn del small" id="disconnect-btn" style="margin-left:6px;">DISCONNECT</button>
   <div class="code-hist" id="code-history"></div>
   <div class="setup-section">LIVE TILE METRICS</div>
   <div class="metric-tog-row" id="metric-toggle-row"></div>
@@ -1120,7 +1121,18 @@ document.getElementById('save-squad-btn').addEventListener('click',()=>{
   CoachSync.listen();
   toast(getSquadCode()?'Connected to squad '+getSquadCode():'Squad code cleared');
 });
-
+document.getElementById('disconnect-btn').addEventListener('click',()=>{
+  const n=Object.keys(CoachSync.rowers()).length;
+  let ok;
+  if(n>0)ok=confirm(n+' rower'+(n===1?' is':'s are')+' still connected. Disconnect anyway?');
+  else ok=confirm('Disconnect from squad?');
+  if(!ok)return;
+  CoachSync.stop();
+  setSquadCode('');
+  document.getElementById('squad-code-input').value='';
+  renderRowerGrid();
+  toast('Disconnected');
+});
 document.getElementById('squad-code-input').value=getSquadCode();
 document.getElementById('coach-name-input').value=getCoachName();
 renderCodeHistory();
