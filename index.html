@@ -14,6 +14,12 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
+:root{
+--mc-pace:#1E88E5; --mc-rate:#FB8C00; --mc-hr:#E53935;
+--mc-dps:#29B6F6; --mc-rloss:#AB47BC; --mc-slope:#9E9D24;
+--mc-impulse:#00897B; --mc-schar:#D81B60; --mc-ratio:#5C6BC0;
+--mc-oar:#26C6DA; --mc-cdelta:#546E7A; --mc-cdur:#FFB300;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:none}
 body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);display:flex;flex-direction:column;}
@@ -32,7 +38,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 /* Live tiles */
 .rower-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
 @media(min-width:600px){.rower-grid{grid-template-columns:repeat(4,1fr);}}
-.rower-tile{background:#fff;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #27ae60;}
+.rower-tile{background:#fff;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #27ae60;position:relative;}
+.rt-remove{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.08);color:#999;border:none;font-size:11px;line-height:16px;text-align:center;cursor:pointer;touch-action:manipulation;padding:0;}
+.rt-remove:active{background:rgba(192,57,43,.25);color:#c0392b;}
 .rower-tile.stale{border-left-color:#ccc;opacity:.55;}
 .rt-name{font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .rt-primary{display:flex;gap:14px;margin-top:4px;}
@@ -127,8 +135,13 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rd-primary{display:flex;gap:24px;justify-content:center;margin:6px 0 24px;}
 .rd-primary-item{text-align:center;}
 .rd-primary-val{font-family:"Roboto Condensed",sans-serif;font-size:54px;font-weight:700;color:#1a5276;line-height:1;}
+#rd-rate-val{color:var(--mc-rate);}
+#rd-pace-val{color:var(--mc-pace);}
 .rd-primary-lbl{font-size:10px;color:#999;letter-spacing:.1em;margin-top:4px;}
 .rd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.rd-stat{background:#fff;border-radius:6px;padding:10px 12px;border:1px solid #eee;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.rd-stat-lbl{font-size:8px;color:#888;letter-spacing:.06em;text-transform:uppercase;}
+.rd-stat-val{font-size:20px;font-weight:700;margin-top:3px;}
 .rd-age{text-align:center;font-size:10px;color:#bbb;margin-top:14px;}
 .wkt-phase{font-size:11px;font-weight:700;letter-spacing:.1em;padding:4px 9px;border-radius:3px;flex-shrink:0;}
 .wkt-phase.warmup{background:#5dade2;color:#fff;}
@@ -141,12 +154,12 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
 .rd-wkt-top{display:flex;align-items:center;gap:10px;}
 .rd-wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:20px;font-weight:700;color:#1a5276;}
 .rd-wkt-info{font-size:10px;color:#666;letter-spacing:.04em;margin-top:7px;line-height:1.4;}
-.chart-card{background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:8px;border:1px solid #eee;box-shadow:0 1px 2px rgba(0,0,0,.04);}
-.chart-card-row{display:flex;align-items:center;gap:10px;}
-.chart-card-info{flex-shrink:0;width:72px;text-align:right;}
-.chart-card-lbl{font-size:8px;color:#888;letter-spacing:.06em;text-transform:uppercase;}
-.chart-card-val{font-size:16px;font-weight:700;color:#222;margin-top:2px;}
-.mini-canvas{flex:1;height:40px;display:block;min-width:0;}
+.curve-card{background:#fff;border-radius:6px;border:1px solid #eee;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:8px 10px 4px;margin-bottom:14px;}
+.curve-card-hdr{display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;}
+.curve-legend{display:flex;gap:12px;}
+.curve-leg-item{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.08em;color:rgba(0,0,0,.55);}
+.curve-leg-dot{width:12px;height:3px;border-radius:2px;flex-shrink:0;}
+#rd-curve-canvas{width:100%;height:140px;display:block;}
 
 /* Toast */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
@@ -221,8 +234,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   <button class="wkt-btn save small" id="save-squad-btn">SAVE &amp; CONNECT</button>
   <button class="wkt-btn del small" id="disconnect-btn" style="margin-left:6px;">DISCONNECT</button>
   <div class="code-hist" id="code-history"></div>
-  <div class="setup-section">LIVE TILE METRICS</div>
+  <div class="setup-section">OVERVIEW TILE METRICS</div>
   <div class="metric-tog-row" id="metric-toggle-row"></div>
+  <div class="setup-section">DETAILED VIEW METRICS</div>
+  <div class="metric-tog-row" id="detail-metric-toggle-row"></div>
   <div style="font-size:10px;color:#999;margin-top:10px;line-height:1.6;">Tap GENERATE for a fresh random squad code each session — avoids accidentally overlapping with another crew using a guessable code. Rowers enter the same code in their Metrics app (Settings tab) to connect. Workouts you save here are pushed to the squad, not stored on rowers' phones automatically — push again any time.</div>
 </div>
 
@@ -230,6 +245,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
   <div class="rd-header">
     <button class="rd-back" id="rd-back-btn">&#8592;</button>
     <span class="rd-title" id="rd-title">Rower</span>
+    <button class="rd-lap" id="rd-remove-btn" style="background:rgba(192,57,43,.22);border-color:rgba(192,57,43,.5);">REMOVE</button>
     <button class="rd-lap" id="rd-lap-btn">LAP</button>
   </div>
   <div class="rd-body" id="rower-detail-content">
@@ -245,9 +261,18 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#efefef;overflow:h
       <div class="rd-primary-item"><div class="rd-primary-val" id="rd-rate-val">--</div><div class="rd-primary-lbl">SPM</div></div>
       <div class="rd-primary-item"><div class="rd-primary-val" id="rd-pace-val">--:--</div><div class="rd-primary-lbl">/500m PACE</div></div>
     </div>
-    <div class="setup-section" id="rd-trends-hdr">TRENDS</div>
-    <div class="metric-tog-row" id="chart-window-row"></div>
-    <div id="rd-charts"></div>
+    <div class="setup-section" id="rd-curve-hdr">STROKE CURVE</div>
+    <div class="curve-card" id="rd-curve-card">
+      <div class="curve-card-hdr">
+        <div class="curve-legend">
+          <div class="curve-leg-item"><div class="curve-leg-dot" style="background:#0077cc"></div>CURRENT</div>
+          <div class="curve-leg-item"><div class="curve-leg-dot" style="background:#e07b00"></div>AVG 5</div>
+        </div>
+      </div>
+      <canvas id="rd-curve-canvas"></canvas>
+    </div>
+    <div class="setup-section" id="rd-stats-hdr">METRICS</div>
+    <div class="rd-grid" id="rd-stats-grid"></div>
     <div id="rd-map" style="height:220px;border-radius:6px;margin-bottom:10px;overflow:hidden;position:relative;z-index:1;"></div>
     <div class="rd-age" id="rd-age"></div>
   </div>
@@ -409,19 +434,19 @@ function updateConnPill(on) {
     p.textContent = on ? 'CONNECTED' : 'OFFLINE'; p.classList.toggle('on', !!on);
 }
 const LIVE_METRIC_DEFS = [
-    { key: 'dist',       label: 'DIST',      fmt: r => r.dist != null ? r.dist + 'm' : '--' },
-    { key: 'dps',        label: 'DPS',       fmt: r => r.dps != null ? r.dps.toFixed(1) + 'm' : '--' },
-    { key: 'ratio',      label: 'RATIO',     fmt: r => r.ratio != null ? r.ratio.toFixed(1) : '--' },
-    { key: 'runLoss',    label: 'RUN LOSS',  fmt: r => r.runLoss != null ? r.runLoss + '%' : '--' },
-    { key: 'catch',      label: 'CATCH',     fmt: r => r.catch != null ? r.catch : '--' },
-    { key: 'catchDur',   label: 'CATCH DUR', fmt: r => r.catchDur != null ? r.catchDur + 'ms' : '--' },
-    { key: 'impulse',    label: 'IMPULSE',   fmt: r => r.impulse != null ? r.impulse : '--' },
-    { key: 'char',       label: 'CHAR %',    fmt: r => r.char != null ? r.char + '%' : '--' },
-    { key: 'oarAngle',   label: 'OAR ANGLE', fmt: r => r.oarAngle != null ? r.oarAngle + '\u00b0' : '--' },
-    { key: 'checkDelta', label: 'CHECK \u0394', fmt: r => r.checkDelta != null ? r.checkDelta.toFixed(2) : '--' },
-    { key: 'strokes',    label: 'STROKES',   fmt: r => r.strokes || 0 },
-    { key: 'laps',       label: 'LAPS',      fmt: r => r.laps || 0 },
-    { key: 'elapsed',    label: 'TIME',      fmt: r => fmt(r.elapsed || 0) }
+    { key: 'dist',       label: 'DIST',      color: '#1a5276', fmt: r => r.dist != null ? r.dist + 'm' : '--' },
+    { key: 'dps',        label: 'DPS',       color: 'var(--mc-dps)', fmt: r => r.dps != null ? r.dps.toFixed(1) + 'm' : '--' },
+    { key: 'ratio',      label: 'RATIO',     color: 'var(--mc-ratio)', fmt: r => r.ratio != null ? r.ratio.toFixed(1) : '--' },
+    { key: 'runLoss',    label: 'RUN LOSS',  color: 'var(--mc-rloss)', fmt: r => r.runLoss != null ? r.runLoss + '%' : '--' },
+    { key: 'catch',      label: 'CATCH',     color: 'var(--mc-slope)', fmt: r => r.catch != null ? r.catch : '--' },
+    { key: 'catchDur',   label: 'CATCH DUR', color: 'var(--mc-cdur)', fmt: r => r.catchDur != null ? r.catchDur + 'ms' : '--' },
+    { key: 'impulse',    label: 'IMPULSE',   color: 'var(--mc-impulse)', fmt: r => r.impulse != null ? r.impulse : '--' },
+    { key: 'char',       label: 'CHAR %',    color: 'var(--mc-schar)', fmt: r => r.char != null ? r.char + '%' : '--' },
+    { key: 'oarAngle',   label: 'OAR ANGLE', color: 'var(--mc-oar)', fmt: r => r.oarAngle != null ? r.oarAngle + '\u00b0' : '--' },
+    { key: 'checkDelta', label: 'CHECK \u0394', color: 'var(--mc-cdelta)', fmt: r => r.checkDelta != null ? r.checkDelta.toFixed(2) : '--' },
+    { key: 'strokes',    label: 'STROKES',   color: '#1a5276', fmt: r => r.strokes || 0 },
+    { key: 'laps',       label: 'LAPS',      color: '#1a5276', fmt: r => r.laps || 0 },
+    { key: 'elapsed',    label: 'TIME',      color: '#1a5276', fmt: r => fmt(r.elapsed || 0) }
 ];
 const DEFAULT_LIVE_METRICS = ['dist', 'laps'];
 function getSelectedMetrics() {
@@ -456,6 +481,39 @@ function renderMetricToggles() {
         };
     });
 }
+const DEFAULT_DETAIL_METRICS = ['dps', 'ratio', 'runLoss', 'impulse', 'char', 'oarAngle', 'checkDelta', 'catchDur'];
+function getSelectedDetailMetrics() {
+    try { const v = JSON.parse(_LS.getItem('_coach_detail_metrics')); if (Array.isArray(v) && v.length) return v; } catch {}
+    return DEFAULT_DETAIL_METRICS.slice();
+}
+function setSelectedDetailMetrics(arr) { try { _LS.setItem('_coach_detail_metrics', JSON.stringify(arr)); } catch {} }
+function renderDetailMetricToggles() {
+    const el = document.getElementById('detail-metric-toggle-row'); if (!el) return;
+    const sel = getSelectedDetailMetrics();
+    const allKeys = LIVE_METRIC_DEFS.map(d => d.key);
+    const isAll = allKeys.every(k => sel.includes(k));
+    el.innerHTML =
+        `<button class="metric-tog-btn${isAll ? ' sel' : ''}" id="dtog-all">ALL</button>` +
+        `<button class="metric-tog-btn${!sel.length ? ' sel' : ''}" id="dtog-none">NONE</button>` +
+        LIVE_METRIC_DEFS.map(d => `<button class="metric-tog-btn${sel.includes(d.key) ? ' sel' : ''}" data-key="${d.key}">${d.label}</button>`).join('');
+    document.getElementById('dtog-all').onclick = () => {
+        setSelectedDetailMetrics(allKeys.slice());
+        renderDetailMetricToggles(); renderRowerDetail();
+    };
+    document.getElementById('dtog-none').onclick = () => {
+        setSelectedDetailMetrics([]);
+        renderDetailMetricToggles(); renderRowerDetail();
+    };
+    el.querySelectorAll('.metric-tog-btn[data-key]').forEach(btn => {
+        btn.onclick = () => {
+            let s = getSelectedDetailMetrics();
+            const k = btn.dataset.key;
+            s = s.includes(k) ? s.filter(x => x !== k) : [...s, k];
+            setSelectedDetailMetrics(s);
+            renderDetailMetricToggles(); renderRowerDetail();
+        };
+    });
+}
 function renderRowerGrid() {
     const grid = document.getElementById('rower-grid'); if (!grid) return;
     const rowers = CoachSync.rowers();
@@ -467,12 +525,13 @@ function renderRowerGrid() {
         const r = rowers[id] || {};
         const age = r.t ? Math.round((now - r.t) / 1000) : null;
         const stale = age == null || age > 8;
-        const chips = metrics.map(d => `<div class="rt-chip"><div class="rt-chip-v">${d.fmt(r)}</div><div class="rt-chip-l">${d.label}</div></div>`).join('');
+        const chips = metrics.map(d => `<div class="rt-chip"><div class="rt-chip-v" style="color:${d.color}">${d.fmt(r)}</div><div class="rt-chip-l">${d.label}</div></div>`).join('');
         return `<div class="rower-tile${stale ? ' stale' : ''}" data-id="${id}">
+            <button class="rt-remove" data-remove-id="${id}" title="Remove tile">&#10005;</button>
             <div class="rt-name">${(r.name || 'Rower')}</div>
             <div class="rt-primary">
-                <div class="rt-primary-item"><div class="rt-primary-val">${fmtRate(r.rate)}</div><div class="rt-primary-lbl">SPM</div></div>
-                <div class="rt-primary-item"><div class="rt-primary-val">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rt-primary-lbl">/500 PACE</div></div>
+                <div class="rt-primary-item"><div class="rt-primary-val" style="color:var(--mc-rate)">${fmtRate(r.rate)}</div><div class="rt-primary-lbl">SPM</div></div>
+                <div class="rt-primary-item"><div class="rt-primary-val" style="color:var(--mc-pace)">${r.pace > 0 ? fmt(r.pace) : '--:--'}</div><div class="rt-primary-lbl">/500 PACE</div></div>
             </div>
             <div class="rt-stats">${chips}</div>
             <div class="rt-age">${age != null ? age + 's ago' : 'no data'}</div>
@@ -480,8 +539,17 @@ function renderRowerGrid() {
     }).join('');
     LiveMap.update();
 }
+async function removeRowerTile(id, name) {
+    if (!confirm('Remove ' + (name || 'this rower') + '\u2019s tile? They can reconnect automatically by rowing again.')) return;
+    const code = getSquadCode(); if (!code) return;
+    try { await fetch(SQUAD_DB_URL + '/squads/' + code + '/rowers/' + id + '.json', { method: 'DELETE' }); } catch {}
+    delete _history[id];
+    toast('Tile removed');
+}
 function wireRowerGrid() {
     document.getElementById('rower-grid').addEventListener('click', e => {
+        const rm = e.target.closest('.rt-remove[data-remove-id]');
+        if (rm) { e.stopPropagation(); const id = rm.dataset.removeId; removeRowerTile(id, (CoachSync.rowers()[id] || {}).name); return; }
         const tile = e.target.closest('.rower-tile[data-id]');
         if (tile) openRowerDetail(tile.dataset.id);
     });
@@ -489,6 +557,13 @@ function wireRowerGrid() {
     document.getElementById('rd-lap-btn').addEventListener('click', () => {
         if (!_detailRowerId) return;
         if (confirm('Send LAP to this boat?')) CoachSync.sendLapToRower(_detailRowerId);
+    });
+    document.getElementById('rd-remove-btn').addEventListener('click', () => {
+        if (!_detailRowerId) return;
+        const id = _detailRowerId;
+        const name = (CoachSync.rowers()[id] || {}).name;
+        removeRowerTile(id, name);
+        closeRowerDetail();
     });
 }
 let _detailRowerId = null;
@@ -627,76 +702,52 @@ const RowerMap = (() => {
         destroy() { if (_map) { _map.remove(); _map = null; _marker = null; _track = null; } }
     };
 })();
-const CHART_WINDOWS = [
-    { key: '10s', ms: 10000,   label: '10S' },
-    { key: '30s', ms: 30000,   label: '30S' },
-    { key: '1m',  ms: 60000,   label: '1M' },
-    { key: '2m',  ms: 120000,  label: '2M' },
-    { key: '5m',  ms: 300000,  label: '5M' },
-    { key: '10m', ms: 600000,  label: '10M' },
-    { key: '30m', ms: 1800000, label: '30M' }
-];
-function getChartWindow() {
-    try { const v = _LS.getItem('_coach_chart_window'); if (v && CHART_WINDOWS.find(w => w.key === v)) return v; } catch {}
-    return '5m';
-}
-function setChartWindow(k) { try { _LS.setItem('_coach_chart_window', k); } catch {} }
-function renderChartWindowToggles() {
-    const el = document.getElementById('chart-window-row'); if (!el) return;
-    const cur = getChartWindow();
-    el.innerHTML = CHART_WINDOWS.map(w => `<button class="metric-tog-btn${w.key === cur ? ' sel' : ''}" data-win="${w.key}">${w.label}</button>`).join('');
-    el.querySelectorAll('[data-win]').forEach(btn => {
-        btn.onclick = () => { setChartWindow(btn.dataset.win); renderChartWindowToggles(); renderRowerCharts(); };
-    });
-}
-function drawSparkline(id, rawData) {
-    const c = document.getElementById(id); if (!c) return;
-    const data = (rawData || []).filter(v => v != null && isFinite(v));
-    const ratio = window.devicePixelRatio || 1, W = c.offsetWidth * ratio, H = c.offsetHeight * ratio;
-    c.width = W; c.height = H;
-    const ctx = c.getContext('2d'); ctx.clearRect(0, 0, W, H);
-    if (data.length < 2) return;
-    const lo = Math.min(...data), hi = Math.max(...data);
-    const rng = (hi - lo) || Math.abs(hi) * 0.1 || 1;
-    const mn = lo - rng * 0.08, mx = hi + rng * 0.08;
-    const range = (mx - mn) || 1, pad = 3;
-    const sy = v => (H - pad) - (((v - mn) / range) * (H - pad * 2));
-    ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
-    for (let i = 0; i <= 2; i++) { const y = pad + i * (H - pad * 2) / 2; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    const color = '#1a5276';
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, color + '33'); g.addColorStop(1, color + '05');
-    ctx.beginPath(); data.forEach((v, i) => { const x = (i / (data.length - 1)) * W; i === 0 ? ctx.moveTo(x, sy(v)) : ctx.lineTo(x, sy(v)); });
-    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
-    ctx.beginPath(); data.forEach((v, i) => { const x = (i / (data.length - 1)) * W; i === 0 ? ctx.moveTo(x, sy(v)) : ctx.lineTo(x, sy(v)); });
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5 * ratio; ctx.lineJoin = 'round'; ctx.stroke();
-}
-function renderRowerCharts() {
-    const wrap = document.getElementById('rd-charts'); if (!wrap || !_detailRowerId) return;
-    const h = _history[_detailRowerId];
-    const win = CHART_WINDOWS.find(w => w.key === getChartWindow()) || CHART_WINDOWS[4];
-    const chartMetrics = [
-        { key: 'rate', label: 'STROKE RATE', isPace: false },
-        { key: 'pace', label: 'PACE /500m', isPace: true }
-    ].concat(getSelectedMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean).map(d => ({ key: d.key, label: d.label, isPace: false })));
-    if (!h || !h.t.length) {
-        wrap.innerHTML = '<div style="text-align:center;color:#bbb;font-size:11px;padding:16px 0;">Not enough data yet.</div>';
+function renderRowerStats(r) {
+    const grid = document.getElementById('rd-stats-grid'); if (!grid) return;
+    const metrics = getSelectedDetailMetrics().map(k => LIVE_METRIC_DEFS.find(d => d.key === k)).filter(Boolean);
+    if (!metrics.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#bbb;font-size:11px;padding:10px 0;">No metrics selected — choose some in Settings.</div>';
         return;
     }
-    const cutoff = Date.now() - win.ms;
-    let startIdx = h.t.findIndex(t => t >= cutoff);
-    if (startIdx === -1) startIdx = h.t.length - 1;
-    wrap.innerHTML = chartMetrics.map(m => {
-        const vals = (h[m.key] || []).slice(startIdx);
-        const lastVal = [...vals].reverse().find(v => v != null);
-        const dispVal = lastVal == null ? '--' : (m.isPace ? (lastVal > 0 ? fmt(lastVal) : '--:--') : (Number.isInteger(lastVal) ? lastVal : lastVal.toFixed(1)));
-        return `<div class="chart-card">
-            <div class="chart-card-row">
-                <canvas id="chart-${m.key}" class="mini-canvas"></canvas>
-                <div class="chart-card-info"><div class="chart-card-lbl">${m.label}</div><div class="chart-card-val">${dispVal}</div></div>
-            </div>
-        </div>`;
-    }).join('');
-    chartMetrics.forEach(m => drawSparkline('chart-' + m.key, (h[m.key] || []).slice(startIdx)));
+    grid.innerHTML = metrics.map(d => `<div class="rd-stat"><div class="rd-stat-lbl">${d.label}</div><div class="rd-stat-val" style="color:${d.color}">${d.fmt(r)}</div></div>`).join('');
+}
+function renderRowerCurve(r) {
+    const canvas = document.getElementById('rd-curve-canvas'); if (!canvas) return;
+    const wrap = canvas.parentElement; const W = wrap.clientWidth; const H = 140;
+    if (!W) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const cur = r && Array.isArray(r.curve) && r.curve.length ? r.curve : null;
+    const avg = r && Array.isArray(r.curveAvg5) && r.curveAvg5.length ? r.curveAvg5 : null;
+    if (!cur && !avg) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.font = '11px Roboto'; ctx.textAlign = 'center';
+        ctx.fillText('Waiting for stroke data\u2026', W / 2, H / 2);
+        return;
+    }
+    const n = (cur || avg).length;
+    const padT = 10, padB = 10, padH = 6;
+    const sx = i => padH + (i / (n - 1)) * (W - padH * 2);
+    let yMin = 0, yMax = 0;
+    [cur, avg].filter(Boolean).forEach(c => c.forEach(v => { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }));
+    const yPad = Math.max((yMax - yMin) * 0.08, 0.1);
+    yMin -= yPad; yMax += yPad;
+    if (yMax > 0 && yMin > -yMax * 0.25) yMin = -yMax * 0.25;
+    const yRange = yMax - yMin || 1;
+    const sy = v => padT + (1 - (v - yMin) / yRange) * (H - padT - padB);
+    const y0 = Math.max(padT, Math.min(H - padB, sy(0)));
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) { const y = H * i / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(padH, y0); ctx.lineTo(W - padH, y0); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    function drawCL(data, color, lw) {
+        ctx.beginPath();
+        data.forEach((v, i) => { const x = sx(i), y = sy(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.stroke();
+    }
+    if (avg) drawCL(avg, '#e07b00', 2.5);
+    if (cur) drawCL(cur, '#0077cc', 2.5);
 }
 function renderRowerDetail() {
     if (!_detailRowerId) return;
@@ -707,20 +758,23 @@ function renderRowerDetail() {
         disc.style.display = 'block';
         document.getElementById('rd-wkt-bar').style.display = 'none';
         document.getElementById('rd-primary').style.display = 'none';
-        document.getElementById('rd-trends-hdr').style.display = 'none';
-        document.getElementById('chart-window-row').style.display = 'none';
-        document.getElementById('rd-charts').innerHTML = '';
+        document.getElementById('rd-curve-hdr').style.display = 'none';
+        document.getElementById('rd-curve-card').style.display = 'none';
+        document.getElementById('rd-stats-hdr').style.display = 'none';
+        document.getElementById('rd-stats-grid').innerHTML = '';
         document.getElementById('rd-age').textContent = '';
         return;
     }
     disc.style.display = 'none';
     document.getElementById('rd-primary').style.display = 'flex';
-    document.getElementById('rd-trends-hdr').style.display = 'block';
-    document.getElementById('chart-window-row').style.display = 'flex';
+    document.getElementById('rd-curve-hdr').style.display = 'block';
+    document.getElementById('rd-curve-card').style.display = 'block';
+    document.getElementById('rd-stats-hdr').style.display = 'block';
     document.getElementById('rd-rate-val').textContent = fmtRate(r.rate);
     document.getElementById('rd-pace-val').textContent = r.pace > 0 ? fmt(r.pace) : '--:--';
     renderRowerWorkout(r);
-    renderRowerCharts();
+    renderRowerCurve(r);
+    renderRowerStats(r);
     const age = r.t ? Math.round((Date.now() - r.t) / 1000) : null;
     document.getElementById('rd-age').textContent = age != null ? age + 's ago' : 'no data';
     RowerMap.update(_detailRowerId);
@@ -1139,7 +1193,7 @@ renderCodeHistory();
 renderWorkoutList();
 wireWorkoutBuilder();
 renderMetricToggles();
-renderChartWindowToggles();
+renderDetailMetricToggles();
 wireRowerGrid();
 renderRowerGrid();
 if(getSquadCode())CoachSync.listen();
