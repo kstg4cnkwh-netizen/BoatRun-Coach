@@ -1,4 +1,4 @@
-const C = 'coach-v1.05';
+const C = 'coach-v1.06';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.add('./')));
   self.skipWaiting();
